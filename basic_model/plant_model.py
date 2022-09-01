@@ -5,22 +5,24 @@ from basic_model.point import Point
 from basic_model.kinematics import *
 
 class PlantModel:
-    def __init__(self, fruit_radius):
+    def __init__(self, fruit_radius, link_len, n_joints):
         # All lengths in cm
-        self.link_length = 5
-        self.total_joints = 5
+        self.link_length = link_len
+        self.total_joints = n_joints
         self.fruit_radius = fruit_radius
         self.max_occlusion = self.link_length * self.total_joints / self.fruit_radius
-        self.dh_table = np.array([
-                # Assume 5 links
-                #       a_i-1      |alpha_i-1|    d   | theta
-                [         0         ,   0    ,    0   ,  0 ], #0
-                [  self.link_length ,   0    ,    0   ,  0 ], #1
-                [  self.link_length ,   0    ,    0   ,  0 ], #2
-                [  self.link_length ,   0    ,    0   ,  0 ], #3
-                [  self.link_length ,   0    ,    0   ,  0 ], #4
-                [  self.link_length ,   0    ,    0   ,  0 ], #5
-            ])
+        # self.dh_table = np.array([
+        #         # Assume 5 links
+        #         #       a_i-1      |alpha_i-1|    d   | theta
+        #         [         0         ,   0    ,    0   ,  0 ], #0
+        #         [  self.link_length ,   0    ,    0   ,  0 ], #1
+        #         [  self.link_length ,   0    ,    0   ,  0 ], #2
+        #         [  self.link_length ,   0    ,    0   ,  0 ], #3
+        #         [  self.link_length ,   0    ,    0   ,  0 ], #4
+        #         [  self.link_length ,   0    ,    0   ,  0 ], #5
+        #     ])
+        self.dh_table = np.zeros((self.total_joints+1,4))
+        self.dh_table[1:,0] = self.link_length
         self.get_joint_poses()
 
     def get_joint_poses(self):
@@ -139,4 +141,4 @@ class PlantModel:
         return inscribed_len/self.fruit_radius
 
     def get_angles(self):
-        return self.dh_table[0:5, 3]
+        return self.dh_table[0:self.total_joints, 3]

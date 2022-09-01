@@ -1,6 +1,6 @@
 from basic_model.plant_model import PlantModel
 
-plant = PlantModel(10)
+plant = PlantModel(10, 5, 5)
 
 # plant.rotate_node(0, 20)
 plant.rotate_node(1, 20)

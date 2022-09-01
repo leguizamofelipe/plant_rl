@@ -10,18 +10,19 @@ class BasicPlantModelEnvironment(gym.Env):
     """A plant environment for OpenAI gym"""
     metadata = {'render.modes': ['human']} # TODO understand what this does
 
-    def __init__(self):
-        self.P = PlantModel(10)
+    def __init__(self, link_len, n_joints):
+        self.P = PlantModel(10, link_len, n_joints)
         # Action space is angle followed by joint index
         # self.action_space = spaces.Box(low = np.array([0, 0]), high = np.array([4, 360]), dtype=np.float32)
         
         # Start 
         self.action_space = spaces.Discrete(10)
-        self.observation_space = spaces.Box(low = np.array([0, 0, 0, 0, 0, 0]), high = np.array([self.P.max_occlusion, 360, 360, 360, 360, 360]))
+        high = np.concatenate((np.array([self.P.max_occlusion]), np.zeros(self.P.total_joints)))
+        self.observation_space = spaces.Box(low = np.zeros(self.P.total_joints+1), high = high)
         self.initialize()
 
     def _take_action(self, action):
-        action -= 5
+        action -= self.P.total_joints
         if np.sign(action) != -1:
             action+=1
 
@@ -37,14 +38,15 @@ class BasicPlantModelEnvironment(gym.Env):
 
         if occ_factor == 0:
             done = True
-            reward = 100
+            reward = 75
             obs = self._next_observation()
         else:           
             done = False 
-            reward = -occ_factor
+            # reward = -occ_factor
+            reward = 0
             obs = self._next_observation()
 
-        return obs, reward, done, occ_factor
+        return obs, reward, done, {'gamma':reward, 'occ' : occ_factor}
 
     def _next_observation(self):
         return np.concatenate((np.array([self.P.calculate_occlusion()]), self.P.get_angles()))
@@ -59,8 +61,4 @@ class BasicPlantModelEnvironment(gym.Env):
 
     def initialize(self):
         self.P.rotate_node(0, 45)
-        self.P.rotate_node(1, 0)
-        self.P.rotate_node(2, 0)
-        self.P.rotate_node(3, 0)
-        self.P.rotate_node(4, 0)
-        self.P.rotate_node(5, 0)
+        for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, 0)
