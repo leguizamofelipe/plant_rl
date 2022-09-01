@@ -1,13 +1,16 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from basic_model.point import Point
 from basic_model.kinematics import *
 
 class PlantModel:
-    def __init__(self):
+    def __init__(self, fruit_radius):
         # All lengths in cm
         self.link_length = 5
         self.total_joints = 5
+        self.fruit_radius = fruit_radius
+        self.max_occlusion = self.link_length * self.total_joints / self.fruit_radius
         self.dh_table = np.array([
                 # Assume 5 links
                 #       a_i-1      |alpha_i-1|    d   | theta
@@ -28,14 +31,14 @@ class PlantModel:
                            [0, 1, 0, -15],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]])
-        for joint in range(1, self.total_joints+1):
+        for joint in range(1, self.total_joints+2):
             prev_T = np.matmul(prev_T, find_T_i(self.dh_table, joint, print_res=False))
             pose = prev_T[0:3][:,3]
             joint_point = Point(pose[0], pose[1], pose[2])
             self.pose_list.append(joint_point)
         return self.pose_list
 
-    def plot_plant(self, fruit_radius, points):
+    def plot_plant(self, points = []):
         self.get_joint_poses()
         ax = plt.axes()
         ax.set_xlim([-20,20]) # Was 0.5
@@ -44,7 +47,7 @@ class PlantModel:
         x_list = [point.x for point in self.pose_list]
         y_list = [point.y for point in self.pose_list]
         ax.plot(x_list, y_list)
-        circle = plt.Circle((0,0), fruit_radius, color = 'r')
+        circle = plt.Circle((0,0), self.fruit_radius, color = 'r')
         ax.add_patch(circle)
         # ax.plot3D(x_list, y_list, z_list, 'blue')
         # ax.set_title(f'Endpoint Pose = {self.endpoint}')
@@ -55,10 +58,10 @@ class PlantModel:
 
     def rotate_node(self, node_i, angle):
         # DH table takes angles in degrees
-        self.dh_table[node_i, 3] = angle
+        self.dh_table[int(node_i), 3] = angle
         self.get_joint_poses()
 
-    def find_intersection(self, p_1, p_2, fruit_radius):
+    def find_intersection(self, p_1, p_2):
         d_x = p_2.x-p_1.x
         d_y = p_2.y-p_1.y
 
@@ -67,7 +70,7 @@ class PlantModel:
         D = p_1.x*p_2.y-p_2.x*p_1.y
         
         # Discriminant
-        delta = fruit_radius**2 * d_r**2 - D**2
+        delta = self.fruit_radius**2 * d_r**2 - D**2
 
         if delta < 0:
             return []
@@ -95,10 +98,45 @@ class PlantModel:
 
             return res
 
-    def calculate_occlusion(self, fruit_radius):
-        res_list = []
-        for joint in range(0, self.total_joints-1):
-            res = self.find_intersection(self.pose_list[joint], self.pose_list[joint+1], fruit_radius)
-            res_list = res_list + res
+    def find_point_dist(self, p1, p2):      
+        return math.sqrt((p1.x-p2.x)**2 + (p1.y-p2.y)**2 + (p1.z-p2.z)**2)
 
-        return res_list
+    def find_seg_length(self, seg):
+        seg_len = 0
+        for count in range(0, len(seg)-1):
+            seg_len += self.find_point_dist(seg[count], seg[count+1])
+        return seg_len
+
+    def calculate_occlusion(self):
+        inscribed_len = 0
+        seg = []
+        in_circle = False
+
+        for joint in range(0, self.total_joints):
+            res = self.find_intersection(self.pose_list[joint], self.pose_list[joint+1])
+            # Case where the links enter the circle 
+            if len(res) == 1 and len(seg) == 0: 
+                seg.append(res[0])
+                seg.append(self.pose_list[joint+1])
+
+                in_circle = True
+            # Case where the links exit the circle
+            elif len(res) == 1 and len(seg) > 0:
+                seg.append(res[0])
+                inscribed_len += self.find_seg_length(seg)
+                seg = []
+                in_circle = False
+            # Case where link enters and exits the circle
+            elif len(res) > 1:
+                inscribed_len += self.find_seg_length(seg)
+                seg = []
+                in_circle = False
+            elif in_circle:
+                seg.append(self.pose_list[joint+1])
+                if joint == self.total_joints-1:
+                    inscribed_len += self.find_seg_length(seg)
+
+        return inscribed_len/self.fruit_radius
+
+    def get_angles(self):
+        return self.dh_table[0:5, 3]
