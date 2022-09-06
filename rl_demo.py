@@ -6,8 +6,8 @@ import numpy as np
 from basic_model.plant_model_env import BasicPlantModelEnvironment
 import matplotlib.pyplot as plt
 
-for n_joints in range(5, 20):
-    link_len = int(25/n_joints)
+for n_joints in [5, 10, 15, 20, 25, 35]:
+    link_len = 25/n_joints
 
     # Environment definition
     env = BasicPlantModelEnvironment(link_len, n_joints)
@@ -52,8 +52,7 @@ for n_joints in range(5, 20):
         phi=phi,
     )
 
-
-    n_episodes = 250
+    n_episodes = 2500
     max_episode_len = 15
 
     ep_rewards = []
@@ -76,19 +75,21 @@ for n_joints in range(5, 20):
         beta = 0
         gamma = 0
 
+        # For each episode
         while True:
             # Uncomment to watch the behavior in a GUI window
             # env.render()
             action = agent.act(obs)
             obs, reward, done, res = env.step(action)
             gamma = res['gamma']
+            alpha += res['alpha']
             beta = 5
-            reward -= beta
+            reward -= beta*n_manipulations
             n_manipulations+=1
             cum_occ+=res['occ']
             # env.P.plot_plant()
             R += reward
-            abs_R += gamma + beta
+            abs_R += gamma + beta + abs(res['alpha'])
             t += 1
             reset = t == max_episode_len
             agent.observe(obs, reward, done, reset)
@@ -102,13 +103,16 @@ for n_joints in range(5, 20):
         alphas.append(abs(alpha)/abs_R)
         betas.append(t*abs(beta)/abs_R)
         gammas.append(gamma/abs_R)
+        # alphas.append(abs(alpha))
+        # betas.append(t*abs(beta))
+        # gammas.append(gamma)
 
         ep_rewards.append(R)
         ep_manipulations.append(n_manipulations)
         ep_occs.append(cum_occ)
     print('Finished.')
 
-    fig, axs = plt.subplots(5, sharex = True)
+    fig, axs = plt.subplots(6, sharex = True)
 
     alpha = 0.7
 
@@ -118,12 +122,12 @@ for n_joints in range(5, 20):
     axs[1].legend()
     axs[2].plot(ep_occs, label = 'Occlusion', color = 'b', alpha = alpha)
     axs[2].legend()
-    # axs[3].plot(alphas, label = 'Occlusion Contribution (Alpha)', color = 'orange', alpha = alpha)
-    # axs[3].legend()
-    axs[3].plot(betas, label = 'Manipulation Contribution (Beta)', color = 'purple', alpha = alpha)
+    axs[3].plot(alphas, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = alpha)
     axs[3].legend()
-    axs[4].plot(gammas, label = 'Success Contribution (Gamma)', color = 'gray', alpha = alpha)
+    axs[4].plot(betas, label = 'Manipulation Contribution (Beta)', color = 'purple', alpha = alpha)
     axs[4].legend()
+    axs[5].plot(gammas, label = 'Success Contribution (Gamma)', color = 'gray', alpha = alpha)
+    axs[5].legend()
 
     # plt.title('Rewards')
     plt.tight_layout()
@@ -131,3 +135,6 @@ for n_joints in range(5, 20):
     plt.xlabel('Episode')
     # plt.show()
     plt.savefig(f'output/{n_joints}_joints.png')
+    plt.close()
+
+    env.P.plot_plant(save=True, tag = f'{n_joints}_final_pose', title = str(env.sigmas))

@@ -16,9 +16,11 @@ class BasicPlantModelEnvironment(gym.Env):
         # self.action_space = spaces.Box(low = np.array([0, 0]), high = np.array([4, 360]), dtype=np.float32)
         
         # Start 
-        self.action_space = spaces.Discrete(10)
+        self.action_space = spaces.Discrete(self.P.total_joints*2)
         high = np.concatenate((np.array([self.P.max_occlusion]), np.zeros(self.P.total_joints)))
         self.observation_space = spaces.Box(low = np.zeros(self.P.total_joints+1), high = high)
+        self.sigmas = np.zeros(self.P.total_joints)
+
         self.initialize()
 
     def _take_action(self, action):
@@ -31,22 +33,29 @@ class BasicPlantModelEnvironment(gym.Env):
         
         self.P.rotate_node(abs(action)-1, curr_angle + np.sign(action)*theta)
 
+        self.sigmas[abs(action)-1] += np.sign(action)
+
     def step(self, action):
         self._take_action(action)
         
         occ_factor = self.P.calculate_occlusion()
-
+        alpha = 0
+        if max(abs(self.sigmas) > 3):
+            alpha = 0 #-100 #-sum(np.abs(self.sigmas) ** 3 )
+        # alpha = 0
         if occ_factor == 0:
             done = True
-            reward = 75
+            gamma = 250
             obs = self._next_observation()
         else:           
             done = False 
             # reward = -occ_factor
-            reward = 0
+            gamma = 0
             obs = self._next_observation()
 
-        return obs, reward, done, {'gamma':reward, 'occ' : occ_factor}
+        reward = alpha + gamma
+
+        return obs, reward, done, {'gamma':gamma, 'occ' : occ_factor, 'alpha' : alpha}
 
     def _next_observation(self):
         return np.concatenate((np.array([self.P.calculate_occlusion()]), self.P.get_angles()))
@@ -62,3 +71,4 @@ class BasicPlantModelEnvironment(gym.Env):
     def initialize(self):
         self.P.rotate_node(0, 45)
         for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, 0)
+        self.sigmas = np.zeros(self.P.total_joints)

@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from basic_model.point import Point
 from basic_model.kinematics import *
+import random
+import time
 
 class PlantModel:
     def __init__(self, fruit_radius, link_len, n_joints):
@@ -23,14 +25,17 @@ class PlantModel:
         #     ])
         self.dh_table = np.zeros((self.total_joints+1,4))
         self.dh_table[1:,0] = self.link_length
+        self.x_init = -15 #random.randint(-15, 15)
+        self.y_init = -15 #random.randint(-15, 15)
         self.get_joint_poses()
 
     def get_joint_poses(self):
         # prev_T = np.eye(4)
         self.pose_list = []
         # Start with a transformation matrix that assumes the plant is shifted to the bottom left (T_u_0)
-        prev_T = np.array([[1, 0, 0, -15],
-                           [0, 1, 0, -15],
+
+        prev_T = np.array([[1, 0, 0, self.x_init],
+                           [0, 1, 0, self.y_init],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]])
         for joint in range(1, self.total_joints+2):
@@ -40,7 +45,7 @@ class PlantModel:
             self.pose_list.append(joint_point)
         return self.pose_list
 
-    def plot_plant(self, points = []):
+    def plot_plant(self, points = [], save = False, tag = int(time.time()), title = ''):
         self.get_joint_poses()
         ax = plt.axes()
         ax.set_xlim([-20,20]) # Was 0.5
@@ -55,8 +60,13 @@ class PlantModel:
         # ax.set_title(f'Endpoint Pose = {self.endpoint}')
         for point in points:
             ax.scatter([point.x], [point.y])
+        plt.title('\n\n\n'+title)
         plt.tight_layout()
-        plt.show()
+        if save:
+            plt.savefig(f'output/plant-{tag}.png')
+            plt.close()
+        else:
+            plt.show()
 
     def rotate_node(self, node_i, angle):
         # DH table takes angles in degrees
