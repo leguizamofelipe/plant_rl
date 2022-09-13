@@ -1,4 +1,5 @@
 import math
+from turtle import color
 import numpy as np
 import matplotlib.pyplot as plt
 from basic_model.point import Point
@@ -7,8 +8,9 @@ import random
 import time
 
 class PlantModel:
-    def __init__(self, fruit_radius, link_len, n_joints):
+    def __init__(self, fruit_radius, link_len, n_joints, randomize = False):
         # All lengths in cm
+        self.plant_init_envelope = 15
         self.link_length = link_len
         self.total_joints = n_joints
         self.fruit_radius = fruit_radius
@@ -25,8 +27,23 @@ class PlantModel:
         #     ])
         self.dh_table = np.zeros((self.total_joints+1,4))
         self.dh_table[1:,0] = self.link_length
-        self.x_init = -15 #random.randint(-15, 15)
-        self.y_init = -15 #random.randint(-15, 15)
+
+        def try_initializing():
+            x_cand = random.randint(-10, 10)
+            y_cand = -self.plant_init_envelope #random.randint(-self.plant_init_envelope, self.plant_init_envelope)
+
+            if x_cand**2 + y_cand**2 < fruit_radius**2:
+                # Failed to initialize outside of fruit radius. Try again
+                x_cand, y_cand = try_initializing()
+
+            return x_cand, y_cand
+
+        if randomize:        
+            self.x_init, self.y_init = try_initializing()
+        else:
+            self.x_init = -self.plant_init_envelope #random.randint(-15, 15)
+            self.y_init = -self.plant_init_envelope #random.randint(-15, 15)
+
         self.get_joint_poses()
 
     def get_joint_poses(self):
@@ -54,12 +71,16 @@ class PlantModel:
         x_list = [point.x for point in self.pose_list]
         y_list = [point.y for point in self.pose_list]
         ax.plot(x_list, y_list)
+
         circle = plt.Circle((0,0), self.fruit_radius, color = 'r')
         ax.add_patch(circle)
         # ax.plot3D(x_list, y_list, z_list, 'blue')
         # ax.set_title(f'Endpoint Pose = {self.endpoint}')
         for point in points:
             ax.scatter([point.x], [point.y])
+        ax.scatter([x_list[0]], [y_list[0]], color = 'green')
+        ax.scatter([x_list[-1]], [y_list[-1]], color = 'red')
+
         plt.title('\n\n\n'+title)
         plt.tight_layout()
         if save:
@@ -99,13 +120,13 @@ class PlantModel:
             x_1 = 1/d_r**2 * (D*d_y + np.sign(d_y)*d_x*delta**(1/2))
             y_1 = 1/d_r**2 * (-D*d_x + abs(d_y)*delta**(1/2))
             
-            if x_1 > min(p_1.x, p_2.x) and x_1 < max(p_1.x, p_2.x) and y_1 > min(p_1.y, p_2.y) and y_1 < max(p_1.y, p_2.y):
+            if x_1 >= min(p_1.x, p_2.x) and x_1 <= max(p_1.x, p_2.x) and y_1 >= min(p_1.y, p_2.y) and y_1 <= max(p_1.y, p_2.y):
                 res = res + [Point(x_1, y_1, 0)]
 
             x_2 = 1/d_r**2 * (D*d_y - np.sign(d_y)*d_x*delta**(1/2))
             y_2 = 1/d_r**2 * (-D*d_x - abs(d_y)*delta**(1/2))
 
-            if x_2 > min(p_1.x, p_2.x) and x_2 < max(p_1.x, p_2.x) and y_2 > min(p_1.y, p_2.y) and y_2 < max(p_1.y, p_2.y):
+            if x_2 >= min(p_1.x, p_2.x) and x_2 <= max(p_1.x, p_2.x) and y_2 >= min(p_1.y, p_2.y) and y_2 <= max(p_1.y, p_2.y):
                 res = res + [Point(x_2, y_2, 0)]
 
             return res

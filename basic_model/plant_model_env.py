@@ -5,21 +5,38 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from basic_model.plant_model import PlantModel
+import random
 
 class BasicPlantModelEnvironment(gym.Env):
     """A plant environment for OpenAI gym"""
     metadata = {'render.modes': ['human']} # TODO understand what this does
 
-    def __init__(self, link_len, n_joints):
-        self.P = PlantModel(10, link_len, n_joints)
+    def __init__(self, link_len, n_joints, randomize = False):
+        self.randomize = randomize
+
+        self.P = PlantModel(10, link_len, n_joints, randomize=self.randomize)
         # Action space is angle followed by joint index
         # self.action_space = spaces.Box(low = np.array([0, 0]), high = np.array([4, 360]), dtype=np.float32)
         
-        # Start 
+        # Start
+
         self.action_space = spaces.Discrete(self.P.total_joints*2)
-        high = np.concatenate((np.array([self.P.max_occlusion]), np.zeros(self.P.total_joints)))
-        self.observation_space = spaces.Box(low = np.zeros(self.P.total_joints+1), high = high)
-        self.sigmas = np.zeros(self.P.total_joints)
+        
+        max_dev = self.P.plant_init_envelope + link_len * n_joints
+
+        x_p_h = np.ones(self.P.total_joints+1) * max_dev
+        y_p_h = np.ones(self.P.total_joints+1) * max_dev
+        x_p_l = np.ones(self.P.total_joints+1) * -max_dev
+        y_p_l = np.ones(self.P.total_joints+1) * -max_dev
+
+        if self.randomize:
+            high = np.concatenate((np.array([self.P.max_occlusion]), np.zeros(self.P.total_joints), x_p_h, y_p_h))
+            self.observation_space = spaces.Box(low = np.concatenate((np.zeros(self.P.total_joints+1), x_p_l, y_p_l)), high = high)
+            self.sigmas = np.zeros(self.P.total_joints)
+        else:
+            high = np.concatenate((np.array([self.P.max_occlusion]), np.zeros(self.P.total_joints)))
+            self.observation_space = spaces.Box(low = np.zeros(self.P.total_joints+1), high = high)
+            self.sigmas = np.zeros(self.P.total_joints)
 
         self.initialize()
 
@@ -58,7 +75,12 @@ class BasicPlantModelEnvironment(gym.Env):
         return obs, reward, done, {'gamma':gamma, 'occ' : occ_factor, 'alpha' : alpha}
 
     def _next_observation(self):
-        return np.concatenate((np.array([self.P.calculate_occlusion()]), self.P.get_angles()))
+        if self.randomize:
+            x = np.array([p.x for p in self.P.pose_list])
+            y = np.array([p.y for p in self.P.pose_list])
+            return np.concatenate((np.array([self.P.calculate_occlusion()]), self.P.get_angles(), x, y)) 
+        else:
+            return np.concatenate((np.array([self.P.calculate_occlusion()]), self.P.get_angles()))
 
     def reset(self):
         self.initialize()
@@ -69,6 +91,11 @@ class BasicPlantModelEnvironment(gym.Env):
         pass
 
     def initialize(self):
-        self.P.rotate_node(0, 45)
-        for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, 0)
+        if self.randomize:
+            self.P.rotate_node(0, 90)
+
+            for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, random.randint(-30, 30))
+        else:
+            self.P.rotate_node(0, 45)
+            for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, 0)
         self.sigmas = np.zeros(self.P.total_joints)
