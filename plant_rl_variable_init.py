@@ -6,7 +6,7 @@ import numpy as np
 from basic_model.plant_model_env import BasicPlantModelEnvironment
 import matplotlib.pyplot as plt
 
-for n_joints in [3, 5, 10, 20, 25, 30]:
+for n_joints in [7]:
 
     # n_joints = 3
 
@@ -19,9 +19,9 @@ for n_joints in [3, 5, 10, 20, 25, 30]:
     class QFunction(torch.nn.Module):
         def __init__(self, obs_size, n_actions):
             super().__init__()
-            self.l1 = torch.nn.Linear(obs_size, 50)
-            self.l2 = torch.nn.Linear(50, 50)
-            self.l3 = torch.nn.Linear(50, n_actions)
+            self.l1 = torch.nn.Linear(obs_size, 100)
+            self.l2 = torch.nn.Linear(100, 100)
+            self.l3 = torch.nn.Linear(100, n_actions)
 
         def forward(self, x):
             h = x
@@ -55,8 +55,8 @@ for n_joints in [3, 5, 10, 20, 25, 30]:
         phi=phi,
     )
 
-    n_episodes = 1000
-    max_episode_len = 10
+    n_episodes = 5000
+    max_episode_len = 20
 
     ep_rewards = []
     ep_manipulations = []
@@ -79,34 +79,45 @@ for n_joints in [3, 5, 10, 20, 25, 30]:
         beta = 0
         gamma = 0
 
+        valid = False
+
+        # Check that the randomly generated plant is occluded
+        while not valid:
+            if env.P.calculate_occlusion() > 0:
+                valid = True
+                if i % 200 == 0:
+                    env.P.plot_plant(save = True, tag = f'ep-{i}-init')
+            else:
+                # Occlusion is 0, so regen the plant model to try to get occlusion
+                env.reset()
+
         # For each episode
         while True:
             # Uncomment to watch the behavior in a GUI window
             # env.render()
-            if env.P.calculate_occlusion() > 0:
-                action = agent.act(obs)
-                obs, reward, done, res = env.step(action)
-                gamma = res['gamma']
-                alpha += res['alpha']
-                beta = 0#5
-                reward -= beta*n_manipulations
-                n_manipulations+=1
-                cum_occ+=res['occ']
-                # env.P.plot_plant()
-                R += reward
-                abs_R += gamma + beta + abs(res['alpha'])
-                t += 1
-                reset = t == max_episode_len
-                agent.observe(obs, reward, done, reset)
-                if done or reset:
-                    break
-            else:
-                # Occlusion is 0, so regen the plant model to try to get occlusion
-                env.reset()
+            action = agent.act(obs)
+            obs, reward, done, res = env.step(action)
+            gamma = res['gamma']
+            alpha += res['alpha']
+            beta = 5
+            reward -= beta*n_manipulations
+            n_manipulations+=1
+            cum_occ+=res['occ']
+            # env.P.plot_plant()
+            R += reward
+            abs_R += gamma + beta + abs(res['alpha'])
+            t += 1
+            reset = t == max_episode_len
+            agent.observe(obs, reward, done, reset)
+            if done:
+                break
+            if reset:
+                break
         if i % 10 == 0:
             print('episode:', i, 'R:', R)
-        if i % 50 == 0:
+        if i % 200 == 0:
             print('statistics:', agent.get_statistics())
+            env.P.plot_plant(save = True, tag = f'ep-{i}-final', title = f'Manipulations: {n_manipulations}\n {str(env.sigmas)}')
         
         alphas.append(abs(alpha)/abs_R if abs_R else 0)
         betas.append(t*abs(beta)/abs_R if abs_R else 0)
@@ -138,8 +149,10 @@ for n_joints in [3, 5, 10, 20, 25, 30]:
     axs[0].legend()
     axs[1].plot(ep_manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
     axs[1].legend()
-    axs[2].plot(ep_occs, label = 'Occlusion', color = 'b', alpha = alpha)
+    axs[2].plot(ep_occs, label = 'Cumulative Occlusion', color = 'b', alpha = alpha)
     axs[2].legend()
+    # axs[2].plot(np.array(alphas)+np.array(betas)+np.array(gammas), label = 'A+B+Ga', color = 'b', alpha = alpha)
+    # axs[2].legend()
     axs[3].plot(alphas, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = alpha)
     axs[3].legend()
     axs[4].plot(betas, label = 'Manipulation Contribution (Beta)', color = 'purple', alpha = alpha)
@@ -155,4 +168,3 @@ for n_joints in [3, 5, 10, 20, 25, 30]:
     plt.savefig(f'output/{n_joints}_joints.png')
     plt.close()
 
-    env.P.plot_plant(save=True, tag = f'{n_joints}_final_pose', title = str(env.sigmas))

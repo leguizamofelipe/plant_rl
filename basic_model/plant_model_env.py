@@ -13,13 +13,13 @@ class BasicPlantModelEnvironment(gym.Env):
 
     def __init__(self, link_len, n_joints, randomize = False):
         self.randomize = randomize
+        self.n_joints = n_joints
+        self.link_len = link_len
 
-        self.P = PlantModel(10, link_len, n_joints, randomize=self.randomize)
+        self.P = PlantModel(10, self.link_len, self.n_joints, randomize=self.randomize)
         # Action space is angle followed by joint index
         # self.action_space = spaces.Box(low = np.array([0, 0]), high = np.array([4, 360]), dtype=np.float32)
         
-        # Start
-
         self.action_space = spaces.Discrete(self.P.total_joints*2)
         
         max_dev = self.P.plant_init_envelope + link_len * n_joints
@@ -58,11 +58,11 @@ class BasicPlantModelEnvironment(gym.Env):
         occ_factor = self.P.calculate_occlusion()
         alpha = 0
         if max(abs(self.sigmas) > 3):
-            alpha = 0 #-100 #-sum(np.abs(self.sigmas) ** 3 )
+            alpha = -10 #-sum(np.abs(self.sigmas) ** 3 )
         # alpha = 0
         if occ_factor == 0:
             done = True
-            gamma = 250
+            gamma = 300
             obs = self._next_observation()
         else:           
             done = False 
@@ -83,6 +83,7 @@ class BasicPlantModelEnvironment(gym.Env):
             return np.concatenate((np.array([self.P.calculate_occlusion()]), self.P.get_angles()))
 
     def reset(self):
+        self.P = PlantModel(10, self.link_len, self.n_joints, randomize=self.randomize)
         self.initialize()
 
         return self._next_observation()
@@ -94,7 +95,7 @@ class BasicPlantModelEnvironment(gym.Env):
         if self.randomize:
             self.P.rotate_node(0, 90)
 
-            for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, random.randint(-30, 30))
+            for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, random.randint(-10, 10))
         else:
             self.P.rotate_node(0, 45)
             for i in range(1, self.P.total_joints+1): self.P.rotate_node(i, 0)

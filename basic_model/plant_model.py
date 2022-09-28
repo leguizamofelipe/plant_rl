@@ -1,5 +1,4 @@
 import math
-from turtle import color
 import numpy as np
 import matplotlib.pyplot as plt
 from basic_model.point import Point
@@ -41,7 +40,7 @@ class PlantModel:
         if randomize:        
             self.x_init, self.y_init = try_initializing()
         else:
-            self.x_init = -self.plant_init_envelope #random.randint(-15, 15)
+            self.x_init = -self.plant_init_envelope#random.randint(-10, 10)
             self.y_init = -self.plant_init_envelope #random.randint(-15, 15)
 
         self.get_joint_poses()
@@ -81,7 +80,7 @@ class PlantModel:
         ax.scatter([x_list[0]], [y_list[0]], color = 'green')
         ax.scatter([x_list[-1]], [y_list[-1]], color = 'red')
 
-        plt.title('\n\n\n'+title)
+        plt.title(title)
         plt.tight_layout()
         if save:
             plt.savefig(f'output/plant-{tag}.png')
