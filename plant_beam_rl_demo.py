@@ -4,76 +4,59 @@ import torch.nn
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
+
 from basic_model.plant_beam_model_env import PlantBeamModelEnvironment
-from pfrl.policies import SoftmaxCategoricalHead
 
 # Environment definition
 env = PlantBeamModelEnvironment()
 
+# Agent definition
+class QFunction(torch.nn.Module):
+    def __init__(self, obs_size, n_actions):
+        super().__init__()
+        self.l1 = torch.nn.Linear(obs_size, 100)
+        self.l2 = torch.nn.Linear(100, 100)
+        self.l3 = torch.nn.Linear(100, n_actions)
+
+    def forward(self, x):
+        h = x
+        h = torch.nn.functional.relu(self.l1(h))
+        h = torch.nn.functional.relu(self.l2(h))
+        h = self.l3(h)
+        return pfrl.action_value.DiscreteActionValue(h)
+
+# Start up the Q function
 obs_size = env.observation_space.low.size
 n_actions = env.action_space.n
-hidden_size = 50
+q_func = QFunction(obs_size, n_actions)
 
-# Agent definition
-model = torch.nn.Sequential(
-    torch.nn.Linear(obs_size, hidden_size),
-    torch.nn.ReLU(),
-    torch.nn.Linear(hidden_size, hidden_size),
-    torch.nn.ReLU(),
-    pfrl.nn.Branched(
-        torch.nn.Sequential( # pi
-            torch.nn.Linear(hidden_size, n_actions),
-            SoftmaxCategoricalHead(),
-        ),
-        torch.nn.Linear(hidden_size, 1), # v
-    ),
-    )
-    
-optimizer = torch.optim.Adam(model.parameters(), eps=1e-2)
+optimizer = torch.optim.Adam(q_func.parameters(), eps=1e-2)
 
 gamma_rl = 0.9
 replay_buffer = pfrl.replay_buffers.ReplayBuffer(capacity=10 ** 6)
 explorer = pfrl.explorers.ConstantEpsilonGreedy(epsilon=0.1, random_action_func=env.action_space.sample)
 phi = lambda x: x.astype(np.float32, copy=False)
-update_interval = 4096
 
-agent = pfrl.agents.PPO(
-    model,
+# Now create an agent that will interact with the environment.
+agent = pfrl.agents.DoubleDQN(
+    q_func,
     optimizer,
-    gamma=0.99,
-    gpu=0,
+    replay_buffer,
+    gamma_rl,
+    explorer,
+    replay_start_size=500,
+    update_interval=1,
+    target_update_interval=100,
     phi=phi,
-    update_interval=update_interval,
-    minibatch_size=64,
-    epochs=10,
-    clip_eps=0.2,
-    clip_eps_vf=None,
-    standardize_advantages=True,
-    entropy_coef=0,
-    max_grad_norm=0.5,
 )
 
 n_episodes = 2500
-max_episode_len = 15
+max_episode_len = 10
 
-ep_rewards = []
-ep_manipulations = []
-ep_occs = []
-
-alphas = []
-betas = []
-gammas = []
 for i in range(1, n_episodes + 1):
     obs = env.reset()
-
+    t = 0
     R = 0  # return (sum of rewards)
-    abs_R = 0
-    t = 0  # time step
-    cum_occ = 0
-    n_manipulations = 0
-
-    alpha = 0
-    gamma = 0
 
     # For each episode
     while True:
@@ -81,31 +64,18 @@ for i in range(1, n_episodes + 1):
         # env.render()
         action = agent.act(obs)
         obs, reward, done, res = env.step(action)
-        gamma = res['gamma']
-        alpha += res['alpha']
-        cum_occ+=res['occ']
-        # env.P.plot_plant()
         R += reward
-        abs_R += gamma + abs(res['alpha'])
         t += 1
         reset = t == max_episode_len
         agent.observe(obs, reward, done, reset)
         if done or reset:
+            if i % int(n_episodes/20) == 0:
+                env.P.plot_plant(save=True, filename=f'Ep_{i}_final_pose.png')
             break
     if i % 10 == 0:
         print('episode:', i, 'R:', R)
     if i % 50 == 0:
         print('statistics:', agent.get_statistics())
-
-    alphas.append(abs(alpha)/abs_R)
-    gammas.append(gamma/abs_R)
-    # alphas.append(abs(alpha))
-    # gammas.append(gamma)
-
-    ep_rewards.append(R)
-    ep_manipulations.append(n_manipulations)
-    ep_occs.append(cum_occ)
-print('Finished.')
 
 # fig, axs = plt.subplots(6, sharex = True)
 
@@ -132,4 +102,4 @@ print('Finished.')
 # plt.savefig(f'output/{n_joints}_joints.png')
 # plt.close()
 
-# env.P.plot_plant()
+# env.P.plot_plant(save=True, tag = f'{n_joints}_final_pose', title = str(env.sigmas))

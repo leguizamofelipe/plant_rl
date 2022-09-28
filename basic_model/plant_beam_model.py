@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,7 +8,7 @@ class PlantBeamModel():
         # P = Force applied (N)
         # x_app = Position of force application measured from root (m)
         
-        resolution = 100
+        self.resolution = 100
 
         self.p_len = 3
 
@@ -16,7 +17,7 @@ class PlantBeamModel():
         self.fruit_y_pos = 2
 
         # Axis declarations
-        self.x = np.linspace(0, self.p_len, num=resolution)
+        self.x = np.linspace(0, self.p_len, num=self.resolution)
         
         # Characteristics of plant cross section
         self.R = 0.015 # Radius (m)
@@ -46,32 +47,49 @@ class PlantBeamModel():
         # Max possible shear stress (neutral surface)
         self.tau = self.Q*self.V/(self.I*self.R)
 
-        self.delta = np.zeros(len(self.x))
-        self.delta[self.x<=x_app] = np.array(P*self.x**2/(6*self.E*self.I)*(3*x_app-self.x))[self.x<=x_app]
-        self.delta[self.x>x_app] = np.array(P*self.x**2/(6*self.E*self.I)*(3*self.x-x_app))[self.x>x_app]
+        self.y = np.zeros(len(self.x))
+        self.y[self.x<=x_app] = np.array(P*self.x**2/(6*self.E*self.I)*(3*x_app-self.x))[self.x<=x_app]
+        self.y[self.x>x_app] = np.array(P*x_app**2/(6*self.E*self.I)*(3*self.x-x_app))[self.x>x_app]
 
-        self.max_von_mises = (self.sigma**2 + 3*self.tau**2)**1/2
+        self.max_von_mises = (self.sigma**2 + 3*self.tau**2)**(1/2)
 
-    def plot_plant(self):
+    def plot_plant(self, save = False, filename = f'{int(time.time())}.png', title =''):
         ax = plt.axes()
         
         circle = plt.Circle((self.fruit_x_pos,self.fruit_y_pos), self.fruit_radius, color = 'r')
         ax.add_patch(circle)
 
-        ax.plot(self.delta, self.x)
+        ax.plot(self.y, self.x)
         ax.set_xlim([-self.p_len+1, self.p_len-1]) # Was 0.5
         ax.set_ylim([-1, self.p_len+1]) # Was 0.5
-        plt.show()
+        plt.title(title)
 
+        if save:
+            plt.savefig(f'output/{filename}')
+            plt.close()
+        else:
+            plt.show()
 
-
-    def return_occlusion(self):
+    def calculate_occlusion(self):
         inscribed = 0
-        for count, y_pos in enumerate(self.x):
-            x_pos = self.delta[count]
-            if ((x_pos-self.fruit_x_pos)**2 + (y_pos-self.fruit_y_pos)**2) < self.fruit_radius**2:
+        for count, x in enumerate(self.x):
+            y = self.y[count]
+            if ((y-self.fruit_x_pos)**2 + (x-self.fruit_y_pos)**2) < self.fruit_radius**2:
                 inscribed+=1
         return inscribed/len(self.x)
 
-P = PlantBeamModel(P = 10, x_app=1)
-P.plot_plant()
+plant = PlantBeamModel()
+alphas = []
+for force in range(0, 300):
+    plant.apply_force(force, 1.5)
+    # plant.plot_plant()
+    # plant.calculate_occlusion()
+    alpha = -sum(abs(plant.max_von_mises))*10**-9
+
+    print(max(plant.max_von_mises)*10**-6)
+    alphas.append(alpha)
+
+# plt.plot(range(0,300), alphas)
+# plt.show()
+plant.plot_plant(False)
+print('done')

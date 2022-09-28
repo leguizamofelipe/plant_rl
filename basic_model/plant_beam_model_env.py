@@ -14,46 +14,40 @@ class PlantBeamModelEnvironment(gym.Env):
 
     def __init__(self):
         self.P = PlantBeamModel()
+
+        self.force = 0
         
-        # Max force to apply
-        P_max = 200
+        self.action_space = spaces.Discrete(2)
 
-        # a = [x_app, P]
-        self.action_space = spaces.Box(low = np.array([0, 0]), high = np.array([self.P.p_len, P_max]))
-
-        # Continuous observation state: max Von Mises stress, occlusion
-        self.observation_space = spaces.Box(low = np.array([0, 0]), high = np.array([10e31, 1]))
+        # Continuous observation state: x_plant, y_plant, x_cf, y_cf, r_f
+        self.observation_space = spaces.Box(low = -10*np.ones(2*self.P.resolution + 3), high = 10*np.ones(2*self.P.resolution + 3))
 
     def _take_action(self, action):
-        P_des = action[1]
-        x_des = action[0]
-        
-        self.P.apply_force(P_des, x_des)
+        if action == 0:
+            self.force+=10
+            self.P.apply_force(self.force, 1.5)
+            return False
+        elif action == 1:
+            return True
 
     def step(self, action):
-        self._take_action(action)
-        
-        occ_factor = self.P.calculate_occlusion()
-        alpha = 0
-        if max(abs(self.sigmas) > 3):
-            alpha = 0 #-100 #-sum(np.abs(self.sigmas) ** 3 )
-        # alpha = 0
-        if occ_factor == 0:
+        done = self._take_action(action)
+        nu = self.P.calculate_occlusion()
+
+        alpha = -sum(abs(self.P.max_von_mises))*10**-9
+        gamma = 0
+        if nu == 0:
             done = True
-            gamma = 250
-            obs = self._next_observation()
-        else:           
-            done = False 
-            # reward = -occ_factor
-            gamma = 0
-            obs = self._next_observation()
+            gamma = 500
 
         reward = alpha + gamma
 
-        return obs, reward, done, {'gamma':gamma, 'occ' : occ_factor, 'alpha' : alpha}
+        obs = self._next_observation()
+
+        return obs, reward, done, {'gamma': gamma, 'occ' : nu, 'alpha' : alpha}
 
     def _next_observation(self):
-        return np.array([self.P.max_von_mises, self.P.return_occlusion()])
+        return np.concatenate([self.P.x, self.P.y, np.array([self.P.fruit_x_pos, self.P.fruit_y_pos, self.P.fruit_radius])])
 
     def reset(self):
         return self._next_observation()
