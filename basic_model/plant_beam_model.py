@@ -78,18 +78,19 @@ class PlantBeamModel():
                 inscribed+=1
         return inscribed/len(self.x)
 
-plant = PlantBeamModel()
-alphas = []
-for force in range(0, 300):
-    plant.apply_force(force, 1.5)
-    # plant.plot_plant()
-    # plant.calculate_occlusion()
-    alpha = -sum(abs(plant.max_von_mises))*10**-9
+# plant = PlantBeamModel()
+# alphas = []
+# for force in range(0, 300):
+#     plant.apply_force(force, 1.5)
+#     # plant.plot_plant()
+#     # plant.calculate_occlusion()
+#     k = sum(abs(plant.max_von_mises))*10**-8
+#     alpha = -k**2
 
-    print(max(plant.max_von_mises)*10**-6)
-    alphas.append(alpha)
+#     print(max(plant.max_von_mises)*10**-6)
+#     alphas.append(alpha)
 
 # plt.plot(range(0,300), alphas)
 # plt.show()
-plant.plot_plant(False)
-print('done')
+# # plant.plot_plant(False)
+# print('done')
