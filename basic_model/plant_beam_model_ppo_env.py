@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from basic_model.plant_beam_model import PlantBeamModel
-import random
+from random import random
 
 
 class PlantBeamModelPPOEnvironment(gym.Env):
@@ -13,7 +13,8 @@ class PlantBeamModelPPOEnvironment(gym.Env):
     metadata = {'render.modes': ['human']} # TODO understand what this does
 
     def __init__(self):
-        self.P = PlantBeamModel()
+        self.max_fruit_radius = 1
+        self.P = PlantBeamModel(random()*self.max_fruit_radius)
 
         self.force = 0
         self.max_ep_len = 20
@@ -54,7 +55,7 @@ class PlantBeamModelPPOEnvironment(gym.Env):
 
         if nu == 0:
             done = True
-            gamma = 500
+            gamma = abs(self.ep_reward)+500
 
         k = sum(abs(self.P.max_von_mises))*10**-10
         alpha = -750*k**2
@@ -106,5 +107,6 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         self.ep_abs_reward = 0
         self.pushes = 0
         self.ep_reward = 0
+        self.P.fruit_radius = random()*self.max_fruit_radius
 
         return self._next_observation()

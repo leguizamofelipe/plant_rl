@@ -1,4 +1,3 @@
-from time import sleep
 import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
@@ -8,7 +7,7 @@ from basic_model.plant_beam_model_ppo_env import PlantBeamModelPPOEnvironment
 # Environment definition
 env = PlantBeamModelPPOEnvironment()
 
-time_steps = 100
+time_steps = 20000
 
 model = PPO('MlpPolicy', env, verbose = 1, device = 'cuda')
 
@@ -51,7 +50,7 @@ while(True):
     obs = env._next_observation()
     action = model.predict(obs)[0]
     obs, reward, done, obj = env.step(action)
-    title = f'R: {round(reward, 2)} Force: {round(env.force, 2)} Location: {round(env.location, 2)} \n Delta Force: {round(action[0], 2)} Delta Location: {round(action[1], 2)}'
+    title = f'R: {round(reward, 2)} Force: {round(env.force, 2)} Location: {round(env.location, 2)} \n Delta Force: {round(action[0], 2)} Delta Location: {round(action[1], 2)} \n Episode Reward: {round(env.ep_reward, 2)}'
 
     env.P.plot_plant(save=True, filename=f'replay/step_{count}.png', title=title)
     plt.close()
