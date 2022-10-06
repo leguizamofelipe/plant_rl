@@ -13,8 +13,8 @@ class PlantBeamModel():
         self.p_len = 3
 
         self.fruit_radius = fruit_radius
-        self.fruit_x_pos = 0
-        self.fruit_y_pos = 2
+        self.fruit_y_center = 0
+        self.fruit_x_center = 2
 
         # Axis declarations
         self.x = np.linspace(0, self.p_len, num=self.resolution)
@@ -56,7 +56,7 @@ class PlantBeamModel():
     def plot_plant(self, save = False, filename = f'{int(time.time())}.png', title =''):
         ax = plt.axes()
         
-        circle = plt.Circle((self.fruit_x_pos,self.fruit_y_pos), self.fruit_radius, color = 'r')
+        circle = plt.Circle((self.fruit_y_center,self.fruit_x_center), self.fruit_radius, color = 'r')
         ax.add_patch(circle)
 
         ax.plot(self.y, self.x)
@@ -74,7 +74,7 @@ class PlantBeamModel():
         inscribed = 0
         for count, x in enumerate(self.x):
             y = self.y[count]
-            if ((y-self.fruit_x_pos)**2 + (x-self.fruit_y_pos)**2) < self.fruit_radius**2:
+            if ((y-self.fruit_y_center)**2 + (x-self.fruit_x_center)**2) < self.fruit_radius**2:
                 inscribed+=1
         return inscribed/len(self.x)
 

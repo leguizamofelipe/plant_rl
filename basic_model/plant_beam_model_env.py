@@ -59,7 +59,7 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         return obs, reward, done, {'gamma': gamma, 'beta' : beta, 'occ' : nu, 'alpha' : alpha}
 
     def _next_observation(self):
-        return np.concatenate([self.P.x, self.P.y, np.array([self.P.fruit_x_pos, self.P.fruit_y_pos, self.P.fruit_radius, self.force])])
+        return np.concatenate([self.P.x, self.P.y, np.array([self.P.fruit_y_center, self.P.fruit_x_center, self.P.fruit_radius, self.force])])
         # return np.array([self.force])
 
     def reset(self):

@@ -25,6 +25,9 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         self.gamma_prop = []
         self.manipulations = []
         self.rewards = []
+        self.cumulative_breaks = []
+
+        self.breaks= 0
         self.ep_alpha = 0
         self.ep_beta = 0
         self.ep_gamma = 0
@@ -39,7 +42,6 @@ class PlantBeamModelPPOEnvironment(gym.Env):
 
         # Continuous observation state: x_plant, y_plant, x_cf, y_cf, r_f, f_app
         self.observation_space = spaces.Box(low = np.concatenate((-10*np.ones(2*self.P.resolution + 4), np.array([0]))), high = np.concatenate((10*np.ones(2*self.P.resolution + 4), np.array([500]))))
-        
 
     def _take_action(self, action):
         self.force+=action[0]
@@ -67,6 +69,19 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         self.ep_abs_reward += abs(alpha) + abs(beta) + abs(gamma)
         self.pushes+=1
 
+        break_plant = False
+        # Assume that a stress of 90 MPa breaks the plant
+        if max(self.P.max_von_mises) > 75*10**6:
+            gamma = -2000
+            done = True
+            self.breaks+=1
+
+        if max(self.P.max_von_mises > 90*10**6):
+            break_plant = True
+
+        # if max(self.P.max_von_mises) > 90*10**6:
+        #     self.breaks+=1
+
         reward = alpha + gamma + beta
 
         self.ep_reward += reward
@@ -76,15 +91,17 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         if self.pushes > self.max_ep_len:
             done = True
 
-        return obs, reward, done, {'gamma': gamma, 'beta' : beta, 'occ' : nu, 'alpha' : alpha}
+        return obs, reward, done, {'gamma': gamma, 'beta' : beta, 'occ' : nu, 'alpha' : alpha, 'success' : nu==0, 'break_plant': break_plant}
 
     def _next_observation(self):
-        return np.concatenate((self.P.x, self.P.y, np.array([self.P.calculate_occlusion(), self.P.fruit_x_pos, self.P.fruit_y_pos, self.P.fruit_radius, self.force])))
+        return np.concatenate((self.P.x, self.P.y, np.array([self.P.calculate_occlusion(), self.P.fruit_y_center, self.P.fruit_x_center, self.P.fruit_radius, self.force])))
     
-    def reset(self):
+    def reset(self, set_occlusion=False):
         self.eps += 1
-        if self.eps % 1000 == 0:
-            self.P.plot_plant(save=True, filename=f'Ep_{self.eps}_final_pose.png', title = f'Reward: {self.ep_reward}')
+        if self.eps % 250 == 0:
+            self.P.plot_plant(save=True, filename=f'Ep_{self.eps}_final_pose.png', title = f'Reward: {self.ep_reward} \n Broke plant?: {max(self.P.max_von_mises) > 90*10**6}')
+        
+        self.cumulative_breaks.append(self.breaks)
 
         self.force = 0
         self.location = self.P.x[int(len(self.P.x)/2)]
@@ -107,6 +124,17 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         self.ep_abs_reward = 0
         self.pushes = 0
         self.ep_reward = 0
-        self.P.fruit_radius = random()*self.max_fruit_radius
+
+        self.set_occlusion()
 
         return self._next_observation()
+
+    def set_occlusion(self):
+        # Place the fruit somewhere
+        self.P.fruit_radius = random()*self.max_fruit_radius
+        self.P.fruit_y_center = random()-1
+        self.P.fruit_x_center = random()*3.5
+
+        # Try again if there is no occlusion
+        if self.P.calculate_occlusion() == 0:
+            self.set_occlusion()
