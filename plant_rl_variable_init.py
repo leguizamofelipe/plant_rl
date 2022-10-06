@@ -55,7 +55,7 @@ for n_joints in [7]:
         phi=phi,
     )
 
-    n_episodes = 5000
+    n_episodes = 2000
     max_episode_len = 20
 
     ep_rewards = []
@@ -99,7 +99,7 @@ for n_joints in [7]:
             obs, reward, done, res = env.step(action)
             gamma = res['gamma']
             alpha += res['alpha']
-            beta = 5
+            beta = 0
             reward -= beta*n_manipulations
             n_manipulations+=1
             cum_occ+=res['occ']
@@ -131,7 +131,7 @@ for n_joints in [7]:
         ep_occs.append(cum_occ)
     print('Finished.')
 
-    fig, axs = plt.subplots(6, sharex = True)
+    fig, axs = plt.subplots(3, sharex = True)
 
     alpha = 0.7
 
@@ -147,24 +147,24 @@ for n_joints in [7]:
     axs[0].plot(ep_rewards, label = 'Rewards', color = 'r', alpha = 0.1)
     axs[0].plot(running_average, label = 'Running Average', color = 'black', alpha = alpha)
     axs[0].legend()
-    axs[1].plot(ep_manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
-    axs[1].legend()
-    axs[2].plot(ep_occs, label = 'Cumulative Occlusion', color = 'b', alpha = alpha)
-    axs[2].legend()
+    # axs[1].plot(ep_manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
+    # axs[1].legend()
+    # axs[1].plot(ep_occs, label = 'Cumulative Occlusion', color = 'b', alpha = alpha)
+    # axs[1].legend()
     # axs[2].plot(np.array(alphas)+np.array(betas)+np.array(gammas), label = 'A+B+Ga', color = 'b', alpha = alpha)
     # axs[2].legend()
-    axs[3].plot(alphas, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = alpha)
-    axs[3].legend()
-    axs[4].plot(betas, label = 'Manipulation Contribution (Beta)', color = 'purple', alpha = alpha)
-    axs[4].legend()
-    axs[5].plot(gammas, label = 'Success Contribution (Gamma)', color = 'gray', alpha = alpha)
-    axs[5].legend()
+    axs[1].plot(alphas, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = alpha)
+    axs[1].legend()
+    # axs[3].plot(betas, label = 'Manipulation Contribution (Beta)', color = 'purple', alpha = alpha)
+    # axs[3].legend()
+    axs[2].plot(gammas, label = 'Success Contribution (Gamma)', color = 'gray', alpha = alpha)
+    axs[2].legend()
 
     # plt.title('Rewards')
     plt.tight_layout()
     # plt.title(f'n = {n_joints} Joints')
     plt.xlabel('Episode')
     # plt.show()
-    plt.savefig(f'output/{n_joints}_joints.png')
+    plt.savefig(f'output/{n_joints}_joints.png', dpi=500)
     plt.close()
 

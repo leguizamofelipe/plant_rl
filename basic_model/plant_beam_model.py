@@ -59,13 +59,13 @@ class PlantBeamModel():
         circle = plt.Circle((self.fruit_y_center,self.fruit_x_center), self.fruit_radius, color = 'r')
         ax.add_patch(circle)
 
-        ax.plot(self.y, self.x)
+        ax.plot(self.y, self.x, color = 'green', linewidth = 10)
         ax.set_xlim([-self.p_len+1, self.p_len-1]) # Was 0.5
         ax.set_ylim([-1, self.p_len+1]) # Was 0.5
         plt.title(title)
 
         if save:
-            plt.savefig(f'output/{filename}')
+            plt.savefig(f'output/{filename}', dpi=500)
             plt.close()
         else:
             plt.show()

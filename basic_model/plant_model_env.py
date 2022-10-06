@@ -16,7 +16,7 @@ class BasicPlantModelEnvironment(gym.Env):
         self.n_joints = n_joints
         self.link_len = link_len
 
-        self.P = PlantModel(10, self.link_len, self.n_joints, randomize=self.randomize)
+        self.P = PlantModel(7, self.link_len, self.n_joints, randomize=self.randomize)
         # Action space is angle followed by joint index
         # self.action_space = spaces.Box(low = np.array([0, 0]), high = np.array([4, 360]), dtype=np.float32)
         
@@ -59,6 +59,7 @@ class BasicPlantModelEnvironment(gym.Env):
         alpha = 0
         if max(abs(self.sigmas) > 3):
             alpha = -10 #-sum(np.abs(self.sigmas) ** 3 )
+            # alpha = 0
         # alpha = 0
         if occ_factor == 0:
             done = True
@@ -70,7 +71,7 @@ class BasicPlantModelEnvironment(gym.Env):
             gamma = 0
             obs = self._next_observation()
 
-        reward = alpha + gamma
+        reward = gamma + alpha
 
         return obs, reward, done, {'gamma':gamma, 'occ' : occ_factor, 'alpha' : alpha}
 
@@ -83,7 +84,7 @@ class BasicPlantModelEnvironment(gym.Env):
             return np.concatenate((np.array([self.P.calculate_occlusion()]), self.P.get_angles()))
 
     def reset(self):
-        self.P = PlantModel(10, self.link_len, self.n_joints, randomize=self.randomize)
+        self.P = PlantModel(7, self.link_len, self.n_joints, randomize=self.randomize)
         self.initialize()
 
         return self._next_observation()

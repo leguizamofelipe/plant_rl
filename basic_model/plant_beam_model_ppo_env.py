@@ -133,7 +133,7 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         # Place the fruit somewhere
         self.P.fruit_radius = random()*self.max_fruit_radius
         self.P.fruit_y_center = random()-1
-        self.P.fruit_x_center = random()*3.5
+        self.P.fruit_x_center = random()*2.5+1
 
         # Try again if there is no occlusion
         if self.P.calculate_occlusion() == 0:

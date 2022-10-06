@@ -13,7 +13,7 @@ for file in os.listdir('output'):
 # Environment definition
 env = PlantBeamModelPPOEnvironment()
 
-time_steps = 100000
+time_steps = 2000
 
 model = PPO('MlpPolicy', env, verbose = 1, device = 'cuda')
 

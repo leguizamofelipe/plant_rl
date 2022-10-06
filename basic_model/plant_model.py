@@ -69,21 +69,21 @@ class PlantModel:
         # ax.set_zlim([0,1])
         x_list = [point.x for point in self.pose_list]
         y_list = [point.y for point in self.pose_list]
-        ax.plot(x_list, y_list)
+        ax.plot(x_list, y_list, color = 'green', linewidth = 10)
 
-        circle = plt.Circle((0,0), self.fruit_radius, color = 'r')
+        circle = plt.Circle((0,0), self.fruit_radius, color = 'r', alpha = 0.8)
         ax.add_patch(circle)
         # ax.plot3D(x_list, y_list, z_list, 'blue')
         # ax.set_title(f'Endpoint Pose = {self.endpoint}')
         for point in points:
-            ax.scatter([point.x], [point.y])
+            ax.scatter([point.x], [point.y], color = 'green')
         ax.scatter([x_list[0]], [y_list[0]], color = 'green')
-        ax.scatter([x_list[-1]], [y_list[-1]], color = 'red')
+        ax.scatter([x_list[-1]], [y_list[-1]], color = 'green')
 
         plt.title(title)
         plt.tight_layout()
         if save:
-            plt.savefig(f'output/plant-{tag}.png')
+            plt.savefig(f'output/plant-{tag}.png', dpi = 500)
             plt.close()
         else:
             plt.show()
