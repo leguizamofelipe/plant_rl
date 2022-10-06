@@ -13,7 +13,7 @@ for file in os.listdir('output'):
 # Environment definition
 env = PlantBeamModelPPOEnvironment()
 
-time_steps = 100000
+time_steps = 500
 
 model = PPO('MlpPolicy', env, verbose = 1, device = 'cuda')
 
@@ -24,25 +24,33 @@ model.learn(total_timesteps=int(time_steps), n_eval_episodes = 30)
 fig, axs = plt.subplots(4, sharex = True)
 
 alpha = 0.7
-window = 20
-running_average = []
-ep_rewards = np.array(env.rewards)
-for ind in range(len(ep_rewards)-window + 1):
-    running_average.append(np.mean(ep_rewards[ind:ind+window]))
 
-for ind in range(window - 1):
-    running_average.insert(0, np.nan)
+def running_average(array):
+    window = 20
+    running_average = []
+    ep_rewards = np.array(array)
+    for ind in range(len(ep_rewards)-window + 1):
+        running_average.append(np.mean(ep_rewards[ind:ind+window]))
+
+    for ind in range(window - 1):
+        running_average.insert(0, np.nan)
+    return running_average
 
 axs[0].plot(env.rewards, label = 'Rewards', color = 'r', alpha = 0.1)
-axs[0].plot(running_average, color = 'r', alpha = alpha)
+axs[0].plot(running_average(env.rewards), color = 'r', alpha = alpha)
 axs[0].legend()
 # axs[1].plot(env.manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
 # axs[1].legend()
-axs[1].plot(env.alpha_prop, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = alpha)
+axs[1].plot(env.alpha_prop, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = 0.1)
+axs[1].plot(running_average(env.alpha_prop), color = 'orange', alpha = alpha)
 axs[1].legend()
-axs[2].plot(env.beta_prop, label = 'Occlusion Contribution (Beta)', color = 'purple', alpha = alpha)
+
+axs[2].plot(env.beta_prop, label = 'Occlusion Contribution (Beta)', color = 'purple', alpha = 0.1)
+axs[2].plot(running_average(env.beta_prop), color = 'purple', alpha = alpha)
+
 axs[2].legend()
-axs[3].plot(env.gamma_prop, label = 'Success Contribution (Gamma)', color = 'gray', alpha = alpha)
+axs[3].plot(env.gamma_prop, label = 'Success Contribution (Gamma)', color = 'gray', alpha = 0.1)
+axs[3].plot(running_average(env.gamma_prop), color = 'gray', alpha = alpha)
 axs[3].legend()
 # axs[5].plot(env.cumulative_breaks, label = 'Cumulative plant breaks', color = 'black', alpha = alpha)
 # axs[5].legend()
