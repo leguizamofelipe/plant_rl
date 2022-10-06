@@ -13,7 +13,7 @@ for file in os.listdir('output'):
 # Environment definition
 env = PlantBeamModelPPOEnvironment()
 
-time_steps = 2000
+time_steps = 100000
 
 model = PPO('MlpPolicy', env, verbose = 1, device = 'cuda')
 
@@ -21,7 +21,7 @@ model.learn(total_timesteps=int(time_steps), n_eval_episodes = 30)
 
 ################################ PLOTTING #####################################
 
-fig, axs = plt.subplots(6, sharex = True)
+fig, axs = plt.subplots(4, sharex = True)
 
 alpha = 0.7
 window = 20
@@ -36,17 +36,17 @@ for ind in range(window - 1):
 axs[0].plot(env.rewards, label = 'Rewards', color = 'r', alpha = 0.1)
 axs[0].plot(running_average, color = 'r', alpha = alpha)
 axs[0].legend()
-axs[1].plot(env.manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
+# axs[1].plot(env.manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
+# axs[1].legend()
+axs[1].plot(env.alpha_prop, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = alpha)
 axs[1].legend()
-axs[2].plot(env.alpha_prop, label = 'Strain Contribution (Alpha)', color = 'orange', alpha = alpha)
+axs[2].plot(env.beta_prop, label = 'Occlusion Contribution (Beta)', color = 'purple', alpha = alpha)
 axs[2].legend()
-axs[3].plot(env.beta_prop, label = 'Occlusion Contribution (Beta)', color = 'purple', alpha = alpha)
+axs[3].plot(env.gamma_prop, label = 'Success Contribution (Gamma)', color = 'gray', alpha = alpha)
 axs[3].legend()
-axs[4].plot(env.gamma_prop, label = 'Success Contribution (Gamma)', color = 'gray', alpha = alpha)
-axs[4].legend()
-axs[5].plot(env.cumulative_breaks, label = 'Cumulative plant breaks', color = 'black', alpha = alpha)
-axs[5].legend()
-plt.savefig('output/curves.png')
+# axs[5].plot(env.cumulative_breaks, label = 'Cumulative plant breaks', color = 'black', alpha = alpha)
+# axs[5].legend()
+plt.savefig('output/curves.png', dpi = 500)
 plt.show()
 
 print('done')
@@ -64,22 +64,22 @@ breaks = np.zeros(n_tries)
 for i in range(0, n_tries):
     env.reset()
     count = 0
-    while(True):
+    while(count<50):
         obs = env._next_observation()
         action = model.predict(obs)[0]
         obs, reward, done, obj = env.step(action)
         
-        if obj['success']: success[i] += 1 
-        if obj['break_plant']: breaks[i] += 1
-
         if i==0:
             title = f'R: {round(reward, 2)} Force: {round(env.force, 2)} Location: {round(env.location, 2)} \n Delta Force: {round(action[0], 2)} Delta Location: {round(action[1], 2)} \n Episode Reward: {round(env.ep_reward, 2)}'
 
             env.P.plot_plant(save=True, filename=f'replay/step_{count}.png', title=title)
             plt.close()
         
-        if done: break
+        # if done: break
         count+=1
+
+    if obj['success']: success[i] += 1 
+    if obj['break_plant']: breaks[i] += 1
 
 print(f'Breaks: {sum(breaks)}')
 print(f'Success: {sum(success)}')

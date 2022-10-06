@@ -38,7 +38,7 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         self.location = self.P.p_len/2
 
         # delta force, location
-        self.action_space = spaces.Box(low = np.array([10, -int(self.P.p_len/20)]), high = np.array([self.max_delta_force, int(self.P.p_len/20)]))
+        self.action_space = spaces.Box(low = np.array([0, -int(self.P.p_len/20)]), high = np.array([self.max_delta_force, int(self.P.p_len/20)]))
 
         # Continuous observation state: x_plant, y_plant, x_cf, y_cf, r_f, f_app
         self.observation_space = spaces.Box(low = np.concatenate((-10*np.ones(2*self.P.resolution + 4), np.array([0]))), high = np.concatenate((10*np.ones(2*self.P.resolution + 4), np.array([500]))))
@@ -57,7 +57,7 @@ class PlantBeamModelPPOEnvironment(gym.Env):
 
         if nu == 0:
             done = True
-            gamma = abs(self.ep_reward)+500
+            gamma = abs(self.ep_reward)+1000
 
         k = sum(abs(self.P.max_von_mises))*10**-10
         alpha = -750*k**2
@@ -110,9 +110,9 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         self.rewards.append(self.ep_reward)
         self.manipulations.append(self.pushes)
         if self.ep_abs_reward != 0:
-            self.alpha_prop.append(abs(self.ep_alpha)/self.ep_abs_reward)
-            self.beta_prop.append(abs(self.ep_beta)/self.ep_abs_reward)
-            self.gamma_prop.append(abs(self.ep_gamma)/self.ep_abs_reward)
+            self.alpha_prop.append(self.ep_alpha)#abs(self.ep_alpha)/self.ep_abs_reward)
+            self.beta_prop.append(self.ep_beta)#abs(self.ep_beta)/self.ep_abs_reward)
+            self.gamma_prop.append(self.ep_gamma)#abs(self.ep_gamma)/self.ep_abs_reward)
         else:
             self.alpha_prop.append(0)
             self.beta_prop.append(0)

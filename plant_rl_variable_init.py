@@ -119,9 +119,9 @@ for n_joints in [7]:
             print('statistics:', agent.get_statistics())
             env.P.plot_plant(save = True, tag = f'ep-{i}-final', title = f'Manipulations: {n_manipulations}\n {str(env.sigmas)}')
         
-        alphas.append(abs(alpha)/abs_R if abs_R else 0)
+        alphas.append(alpha)#/abs_R if abs_R else 0)
         betas.append(t*abs(beta)/abs_R if abs_R else 0)
-        gammas.append(gamma/abs_R if abs_R else 0)
+        gammas.append(gamma)#/abs_R if abs_R else 0)
         # alphas.append(abs(alpha))
         # betas.append(t*abs(beta))
         # gammas.append(gamma)
@@ -145,7 +145,7 @@ for n_joints in [7]:
         running_average.insert(0, np.nan)
 
     axs[0].plot(ep_rewards, label = 'Rewards', color = 'r', alpha = 0.1)
-    axs[0].plot(running_average, label = 'Running Average', color = 'black', alpha = alpha)
+    axs[0].plot(running_average, label = 'Running Average', color = 'r', alpha = alpha)
     axs[0].legend()
     # axs[1].plot(ep_manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
     # axs[1].legend()
