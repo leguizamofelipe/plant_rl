@@ -1,3 +1,4 @@
+from math import exp
 import gym
 from gym import spaces
 import numpy as np
@@ -38,14 +39,18 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         self.location = self.P.p_len/2
 
         # delta force, location
-        self.action_space = spaces.Box(low = np.array([0, -int(self.P.p_len/20)]), high = np.array([self.max_delta_force, int(self.P.p_len/20)]))
+        self.action_space = spaces.Box(low = np.array([-self.max_delta_force, -self.P.p_len/20]), high = np.array([self.max_delta_force, self.P.p_len/20]))
 
         # Continuous observation state: x_plant, y_plant, x_cf, y_cf, r_f, f_app
-        self.observation_space = spaces.Box(low = np.concatenate((-10*np.ones(2*self.P.resolution + 4), np.array([0]))), high = np.concatenate((10*np.ones(2*self.P.resolution + 4), np.array([500]))))
+        self.observation_space = spaces.Box(low = np.concatenate((-10*np.ones(2*self.P.resolution + 4), np.array([0, 0]))), high = np.concatenate((10*np.ones(2*self.P.resolution + 4), np.array([500, self.P.p_len]))))
 
     def _take_action(self, action):
         self.force+=action[0]
         self.location+=action[1]
+
+        if self.location <= 0:
+            self.location = 0.15
+    
         self.P.apply_force(self.force, self.location)
 
     def step(self, action):
@@ -55,32 +60,35 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         gamma = 0
         alpha = 0
 
-        if nu == 0:
+        # k = sum(abs(self.P.max_von_mises))*10**-10
+        k = max(abs(self.P.max_von_mises))*10**-6
+        # alpha = -750*k**2
+        alpha = max(-3000, -exp(0.5*(k-75)))#-750*k**2
+        beta = -100*nu
+
+        break_plant = False
+        # Assume that a stress of 90 MPa breaks the plant
+        if max(self.P.max_von_mises) > 75*10**6:
+            gamma = 0
+            # done = True
+            self.breaks+=1
+
+        if max(self.P.max_von_mises > 90*10**6):
+            break_plant = True
+            gamma = -5000
+
+        if nu == 0 and break_plant==False:
             done = True
             gamma = abs(self.ep_reward)+1000
 
-        k = sum(abs(self.P.max_von_mises))*10**-10
-        alpha = -750*k**2
-        beta = -100*nu
+        # if max(self.P.max_von_mises) > 90*10**6:
+        #     self.breaks+=1
 
         self.ep_alpha += alpha
         self.ep_beta += beta
         self.ep_gamma += gamma
         self.ep_abs_reward += abs(alpha) + abs(beta) + abs(gamma)
         self.pushes+=1
-
-        break_plant = False
-        # Assume that a stress of 90 MPa breaks the plant
-        if max(self.P.max_von_mises) > 75*10**6:
-            gamma = -2000
-            done = True
-            self.breaks+=1
-
-        if max(self.P.max_von_mises > 90*10**6):
-            break_plant = True
-
-        # if max(self.P.max_von_mises) > 90*10**6:
-        #     self.breaks+=1
 
         reward = alpha + gamma + beta
 
@@ -94,11 +102,11 @@ class PlantBeamModelPPOEnvironment(gym.Env):
         return obs, reward, done, {'gamma': gamma, 'beta' : beta, 'occ' : nu, 'alpha' : alpha, 'success' : nu==0, 'break_plant': break_plant}
 
     def _next_observation(self):
-        return np.concatenate((self.P.x, self.P.y, np.array([self.P.calculate_occlusion(), self.P.fruit_y_center, self.P.fruit_x_center, self.P.fruit_radius, self.force])))
+        return np.concatenate((self.P.x, self.P.y, np.array([self.P.calculate_occlusion(), self.P.fruit_y_center, self.P.fruit_x_center, self.P.fruit_radius, self.force, self.location])))
     
     def reset(self, set_occlusion=False):
         self.eps += 1
-        if self.eps % 250 == 0:
+        if self.eps % 1000 == 0:
             self.P.plot_plant(save=True, filename=f'Ep_{self.eps}_final_pose.png', title = f'Reward: {self.ep_reward} \n Broke plant?: {max(self.P.max_von_mises) > 90*10**6}')
         
         self.cumulative_breaks.append(self.breaks)

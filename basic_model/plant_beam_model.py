@@ -65,6 +65,7 @@ class PlantBeamModel():
         plt.title(title)
 
         if save:
+            # plt.axis('off')
             plt.savefig(f'output/{filename}', dpi=500)
             plt.close()
         else:
