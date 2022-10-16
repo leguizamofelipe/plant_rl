@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import SAC
-from stable_baselines.sac.policies import MlpPolicy
+from stable_baselines3.sac.policies import MlpPolicy
 from basic_model.plant_beam_model_ppo_env import PlantBeamModelPPOEnvironment
 
 cwd = os.getcwd()
@@ -13,7 +13,7 @@ for file in os.listdir('output'):
 # Environment definition
 env = PlantBeamModelPPOEnvironment()
 
-time_steps = 100000
+time_steps = 20000
 
 model = SAC(MlpPolicy, env, verbose = 1, device = 'cuda')
 

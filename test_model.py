@@ -1,13 +1,13 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from stable_baselines3 import PPO
+from stable_baselines3 import SAC
 
 from basic_model.plant_beam_model_ppo_env import PlantBeamModelPPOEnvironment
 import shutil
 import os
 
-model = PPO.load('pls.zip')
+model = SAC.load('pls.zip')
 env = PlantBeamModelPPOEnvironment()
 obs = env.reset()
 
@@ -17,12 +17,12 @@ save_dir = f'output/forces'
 for file in os.listdir(save_dir):
     os.remove(os.path.join(save_dir, file))
 
-for c in range(0, 100):
+for c in range(0, 25):
     ep_force = []
     ep_rewards = []
     delta_x = []
     R = 0
-    for i in range(0, 500):
+    for i in range(0, 20):
         if env.P.calculate_occlusion() == 0:
             success+=1
             break
@@ -51,6 +51,7 @@ for c in range(0, 100):
         plt.close()
         env.P.plot_plant(save=True, filename=f'forces/plant_{c}.png')
         plt.close()
+    plt.close()
     obs = env.reset()
 
 print(f'Breaks: {breaks}')

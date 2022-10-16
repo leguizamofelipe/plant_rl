@@ -33,9 +33,18 @@ class PlantBeamModel():
         self.apply_force(P, x_app)
 
     def apply_force(self, P, x_app):
+        if x_app > self.p_len:
+            x_app = self.p_len
+        elif x_app < 0:
+            x_app = 0.15
+
         # Bending moment
         self.M = P*x_app - P*self.x
-        self.M[self.M<0] = 0
+        
+        if np.sign(P) == 1:
+            self.M[self.M<0] = 0
+        elif np.sign(P) == -1:
+            self.M[self.M>0] = 0
 
         # Shear stress
         self.V = -P * np.ones(len(self.x))

@@ -50,6 +50,8 @@ class PlantBeamModelPPOEnvironment(gym.Env):
 
         if self.location <= 0:
             self.location = 0.15
+        if self.location >= 3:
+            self.location = 3
     
         self.P.apply_force(self.force, self.location)
 
@@ -68,12 +70,12 @@ class PlantBeamModelPPOEnvironment(gym.Env):
 
         break_plant = False
         # Assume that a stress of 90 MPa breaks the plant
-        if max(self.P.max_von_mises) > 75*10**6:
+        if max(abs(self.P.max_von_mises)) > 75*10**6:
             gamma = 0
             # done = True
             self.breaks+=1
 
-        if max(self.P.max_von_mises > 90*10**6):
+        if max(abs(self.P.max_von_mises)) > 90*10**6:
             break_plant = True
             gamma = -5000
 
