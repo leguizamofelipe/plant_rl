@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import SAC
 from stable_baselines3.sac.policies import MlpPolicy
-from basic_model.plant_beam_model_ppo_env import PlantBeamModelPPOEnvironment
+from basic_model.plant_beam_model_continuous_env import PlantBeamModelContinuousEnvironment
 
 cwd = os.getcwd()
 for file in os.listdir('output'):
@@ -11,9 +11,9 @@ for file in os.listdir('output'):
         os.remove(os.path.join(cwd, 'output', file))
 
 # Environment definition
-env = PlantBeamModelPPOEnvironment()
+env = PlantBeamModelContinuousEnvironment()
 
-time_steps = 20000
+time_steps = 500000
 
 model = SAC(MlpPolicy, env, verbose = 1, device = 'cuda')
 
@@ -37,6 +37,7 @@ def running_average(array):
     return running_average
 
 axs[0].plot(env.rewards, label = 'Rewards', color = 'r', alpha = 0.1)
+axs[0].set_ylim([-1500, 1500])
 axs[0].plot(running_average(env.rewards), color = 'r', alpha = alpha)
 axs[0].legend()
 # axs[1].plot(env.manipulations, label = 'Manipulations', color = 'g', alpha = alpha)
@@ -83,7 +84,7 @@ for i in range(0, n_tries):
         if i==0:
             title = f'R: {round(reward, 2)} Force: {round(env.force, 2)} Location: {round(env.location, 2)} \n Delta Force: {round(action[0], 2)} Delta Location: {round(action[1], 2)} \n Episode Reward: {round(env.ep_reward, 2)}'
 
-            env.P.plot_plant(save=True, filename=f'replay/step_{count}.png', title=title)
+            env.P.plot_plant(save=True, filename=f'output/replay/step_{count}.png', title=title)
             plt.close()
         
         # if done: break
@@ -95,4 +96,4 @@ for i in range(0, n_tries):
 print(f'Breaks: {sum(breaks)}')
 print(f'Success: {sum(success)}')
 
-model.save('pls')
+model.save(f'SAC-{time_steps}-randomized-timesteps')

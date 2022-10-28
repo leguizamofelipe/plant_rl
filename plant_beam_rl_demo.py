@@ -5,10 +5,10 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 
-from basic_model.plant_beam_model_ppo_env import PlantBeamModelPPOEnvironment
+from basic_model.plant_beam_model_continuous_env import PlantBeamModelContinuousEnvironment
 
 # Environment definition
-env = PlantBeamModelPPOEnvironment()
+env = PlantBeamModelContinuousEnvironment()
 
 # Agent definition
 class QFunction(torch.nn.Module):
@@ -94,7 +94,7 @@ for i in range(1, n_episodes + 1):
         agent.observe(obs, reward, done, reset)
         if done or reset:
             if i % int(n_episodes/20) == 0:
-                env.P.plot_plant(save=True, filename=f'Ep_{i}_final_pose.png', title = f'Reward: {R}')
+                env.P.plot_plant(save=True, filename=f'output/Ep_{i}_final_pose.png', title = f'Reward: {R}')
             break
 
     #################### INSTRUMENTATION ##################

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 
-from basic_model.plant_beam_model_ppo_env import PlantBeamModelPPOEnvironment
+from basic_model.plant_beam_model_continuous_env import PlantBeamModelContinuousEnvironment
 
 cwd = os.getcwd()
 for file in os.listdir('output'):
@@ -11,7 +11,7 @@ for file in os.listdir('output'):
         os.remove(os.path.join(cwd, 'output', file))
 
 # Environment definition
-env = PlantBeamModelPPOEnvironment()
+env = PlantBeamModelContinuousEnvironment()
 
 time_steps = 5000000
 

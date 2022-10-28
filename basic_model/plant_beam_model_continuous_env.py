@@ -6,16 +6,15 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from basic_model.plant_beam_model import PlantBeamModel
-from random import random
+import random
 
-
-class PlantBeamModelPPOEnvironment(gym.Env):
+class PlantBeamModelContinuousEnvironment(gym.Env):
     """A plant environment for OpenAI gym"""
     metadata = {'render.modes': ['human']} # TODO understand what this does
 
     def __init__(self):
         self.max_fruit_radius = 1
-        self.P = PlantBeamModel(random()*self.max_fruit_radius)
+        self.P = PlantBeamModel(random.random()*self.max_fruit_radius)
 
         self.force = 0
         self.max_ep_len = 20
@@ -109,12 +108,15 @@ class PlantBeamModelPPOEnvironment(gym.Env):
     def reset(self, set_occlusion=False):
         self.eps += 1
         if self.eps % 1000 == 0:
-            self.P.plot_plant(save=True, filename=f'Ep_{self.eps}_final_pose.png', title = f'Reward: {self.ep_reward} \n Broke plant?: {max(self.P.max_von_mises) > 90*10**6}')
+            self.P.plot_plant(save=True, filename=f'output/Ep_{self.eps}_final_pose.png', title = f'Reward: {self.ep_reward} \n Broke plant?: {max(self.P.max_von_mises) > 90*10**6}')
         
         self.cumulative_breaks.append(self.breaks)
 
         self.force = 0
         self.location = self.P.x[int(len(self.P.x)/2)]
+
+        # Randomly set the elastic modulus within a reasonable bound
+        self.P.E = random.gauss(10, 1) * 1e9
         self.P.apply_force(0, 1.5)
 
         self.rewards.append(self.ep_reward)
@@ -141,9 +143,9 @@ class PlantBeamModelPPOEnvironment(gym.Env):
 
     def set_occlusion(self):
         # Place the fruit somewhere
-        self.P.fruit_radius = random()*self.max_fruit_radius
-        self.P.fruit_y_center = random()-1
-        self.P.fruit_x_center = random()*2.5+1
+        self.P.fruit_radius = random.random()*self.max_fruit_radius
+        self.P.fruit_y_center = random.random()-1
+        self.P.fruit_x_center = random.random()*2.5+1
 
         # Try again if there is no occlusion
         if self.P.calculate_occlusion() == 0:

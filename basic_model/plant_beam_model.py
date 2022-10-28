@@ -2,6 +2,7 @@ import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import random
 
 class PlantBeamModel():
     def __init__(self, P = 0, x_app = 0.5, fruit_radius = 0.5):
@@ -25,7 +26,7 @@ class PlantBeamModel():
         self.I = 1/4 * 3.14159 * self.R**4
 
         # Young's modulus
-        self.E = 10e9 # Al-Zube et al
+        self.E = 10e9#10e9 # Al-Zube et al
 
         # Maximum possible first moment of area
         self.Q = 1/12 * (2*self.R)**3
@@ -75,7 +76,7 @@ class PlantBeamModel():
 
         if save:
             # plt.axis('off')
-            plt.savefig(f'output/{filename}', dpi=500)
+            plt.savefig(filename, dpi=500)
             plt.close()
         else:
             plt.show()
