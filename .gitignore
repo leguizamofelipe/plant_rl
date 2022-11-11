@@ -11,6 +11,8 @@ __pycache__/
 .png
 
 output/
+assets/
+policies/
 
 # Distribution / packaging
 .Python
