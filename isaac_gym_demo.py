@@ -16,6 +16,7 @@ Positional control of franka panda robot with a target attractor that the robot 
 import math
 from isaacgym import gymapi
 from isaacgym import gymutil
+import numpy as np
 
 # Initialize gym
 gym = gymapi.acquire_gym()
@@ -154,6 +155,16 @@ for i in range(num_envs):
     soft_actor = gym.create_actor(env, soft_asset, pose, "soft", i, 1)
     soft_actors.append(soft_actor)
 
+    # Add fruit
+    asset_options = gymapi.AssetOptions()
+    asset_options.density = 10.0
+    # asset_options.color
+    pose = gymapi.Transform()
+    pose.p = gymapi.Vec3(3.2, 0.8, -1.8)
+    sphere_asset = gym.create_sphere(sim, 0.1)
+    ball_actor = gym.create_actor(env, sphere_asset, pose, "ball", i, 0, 0)
+
+
 # get joint limits and ranges for Franka
 franka_dof_props = gym.get_actor_dof_properties(envs[0], franka_handles[0])
 franka_lower_limits = franka_dof_props['lower']
@@ -179,10 +190,12 @@ for i in range(num_envs):
 # Time to wait in seconds before moving robot
 next_franka_update_time = 1.5
 
-
+num_dofs = gym.get_asset_dof_count(franka_asset)
+dof_states = np.zeros(num_dofs, dtype=gymapi.DofState.dtype)
+dof_positions = dof_states['pos']
 
 ############################################### END CONFIGURE AND INITIALIZE  #############################################
-
+count = 0
 
 while not gym.query_viewer_has_closed(viewer):
     # Every 0.01 seconds the pose of the attactor is updated
@@ -192,11 +205,15 @@ while not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
     gym.fetch_results(sim, True)
 
+    for d in range(0, num_dofs):
+        dof_positions[d] = 0.01*count
+        gym.set_actor_dof_states(env, franka_handle, dof_states, gymapi.STATE_POS)
+    
     # Step rendering
     gym.step_graphics(sim)
     gym.draw_viewer(viewer, sim, False)
     gym.sync_frame_time(sim)
-
+    count+=1
 print("Done")
 
 gym.destroy_viewer(viewer)
