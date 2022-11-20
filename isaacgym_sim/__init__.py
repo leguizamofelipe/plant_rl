@@ -4,11 +4,11 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 from isaacgym.torch_utils import *
+import time
 
 import os
 import numpy as np
 import torch
-
 
 class Simulation():
     def __init__(self) -> None:
@@ -41,9 +41,9 @@ class Simulation():
 
         #For deform bodies
         # enable Von-Mises stress visualization
-        sim_params.stress_visualization = True
+        sim_params.stress_visualization = False
         sim_params.stress_visualization_min = 0.0
-        sim_params.stress_visualization_max = 10e+10
+        sim_params.stress_visualization_max = 1e6
 
         sim_params.use_gpu_pipeline = False
         
@@ -209,52 +209,7 @@ class Simulation():
         self.gym.viewer_camera_look_at(self.viewer, middle_env, cam_pos, cam_target)
 
         self.gym.prepare_sim(self.sim)
-        '''
-        # initial hand position and orientation tensors
-        init_pos = torch.Tensor(self.init_pos_list).view(self.num_envs, 3).to(self.device)
-        init_rot = torch.Tensor(self.init_rot_list).view(self.num_envs, 4).to(self.device)
 
-        # hand orientation for grasping
-        down_q = torch.stack(self.num_envs * [torch.tensor([1.0, 0.0, 0.0, 0.0])]).to(self.device).view((self.num_envs, 4))
-
-        # box corner coords, used to determine grasping yaw
-        box_half_size = 0.5 * box_size
-        corner_coord = torch.Tensor([box_half_size, box_half_size, box_half_size])
-        corners = torch.stack(self.num_envs * [corner_coord]).to(self.device)
-
-        # downard axis
-        down_dir = torch.Tensor([0, 0, -1]).to(self.device).view(1, 3)
-
-        # get jacobian tensor
-        # for fixed-base franka, tensor has shape (num envs, 10, 6, 9)
-        _jacobian = self.gym.acquire_jacobian_tensor(self.sim, "franka")
-        jacobian = gymtorch.wrap_tensor(_jacobian)
-
-        # # jacobian entries corresponding to franka hand
-        self.j_eef = jacobian[:, franka_hand_index - 1, :, :7]
-
-        # get mass matrix tensor
-        _massmatrix = self.gym.acquire_mass_matrix_tensor(self.sim, "franka")
-        mm = gymtorch.wrap_tensor(_massmatrix)
-        mm = mm[:, :7, :7]          # only need elements corresponding to the franka arm
-
-        # get rigid body state tensor
-        # _rb_states = self.gym.acquire_rigid_body_state_tensor(self.sim)
-        # rb_states = gymtorch.wrap_tensor(_rb_states)
-
-        # get dof state tensor
-        _dof_states = self.gym.acquire_dof_state_tensor(self.sim)
-        dof_states = gymtorch.wrap_tensor(_dof_states)
-        self.dof_pos = dof_states[:, 0].view(self.num_envs, 9, 1)
-        dof_vel = dof_states[:, 1].view(self.num_envs, 9, 1)
-
-        # Create a tensor noting whether the hand should return to the initial position
-        # hand_restart = torch.full([num_envs], False, dtype=torch.bool).to(device)
-
-        # Set action tensors
-        self.pos_action = torch.zeros_like(dof_pos).squeeze(-1)
-        # effort_action = torch.zeros_like(pos_action)
-        '''
         
     ############################################### END CONFIGURE AND INITIALIZE  #############################################
         self.count = 0
@@ -276,15 +231,20 @@ class Simulation():
         self.gym.refresh_dof_state_tensor(self.sim)
         self.gym.refresh_jacobian_tensors(self.sim)
         self.gym.refresh_mass_matrix_tensors(self.sim)
-
+        self.gym.refresh_particle_state_tensor(self.sim)
+        # self.gym.refresh
 
         state_tensor = torch.tensor(self.target_angles, dtype=torch.float32)
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(state_tensor))
         
-        # gym.set_dof_actuation_force_tensor(sim, gymtorch.unwrap_tensor(effort_action))
-
         self.gym.render_all_camera_sensors(self.sim)
         self.gym.start_access_image_tensors(self.sim)
+
+        flex_pose_tensor = gymtorch.wrap_tensor(self.gym.acquire_particle_state_tensor(self.sim))
+        self.cartesian_pose = flex_pose_tensor[:,0:3].flatten()
+        self.robot_state_tensor = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))[:,0] 
+        
+        self.von_mises = self.find_von_mises()
 
         fname = os.path.join(self.img_dir, "cam-%04d-%04d.png" % (self.count, 0))
         cam_img = self.cam_tensor.cpu().numpy()
@@ -303,3 +263,14 @@ class Simulation():
     def end_sim(self):
         self.gym.destroy_viewer(self.viewer)
         self.gym.destroy_sim(self.sim)
+
+    def find_von_mises(self):
+        """Extract the element-wise von Mises stresses."""
+        (_, tet_stress) = self.gym.get_sim_tetrahedra(self.sim)               
+
+        # Get von mises stress from Cauchy tensor
+        return  [np.sqrt(0.5 * \
+                                        ((stress.x.x - stress.y.y) ** 2 \
+                                        + (stress.y.y - stress.z.z) ** 2 \
+                                        + (stress.z.z - stress.x.x) ** 2 \
+                                        + 6 * (stress.y.z ** 2 + stress.z.x ** 2 + stress.x.y ** 2))) for stress in tet_stress]
