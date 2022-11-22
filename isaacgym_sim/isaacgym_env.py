@@ -7,62 +7,65 @@ from basic_model.plant_beam_model import PlantBeamModel
 
 from . import Simulation
 
-
-class PlantBeamModelPPOEnvironment(gym.Env):
+class IsaacGymPlantEnv(gym.Env):
     """An isaacgym plant environment for OpenAI gym"""
 
     def __init__(self):
 
         self.S = Simulation()
-
-        self.force = 0
         
-        self.action_space = spaces.Discrete(10)
+        self.action_space = spaces.Discrete(18)
+        self.dtheta = 0.05
 
-        # Continuous observation state: x_plant, y_plant, x_cf, y_cf, r_f, f_app
-        self.observation_space = spaces.Box(low = np.concatenate((-10*np.ones(2*self.P.resolution + 3), np.array([0]))), high = np.concatenate((10*np.ones(2*self.P.resolution + 3), np.array([500]))))
-        
-        # f_app
-        # self.observation_space = spaces.Box(low = np.array([0]), high = np.array([500]))
+        len_von_mises = len(self.S.find_von_mises())
+
+        # obs_low = np.concatenate((np.zeros(len_von_mises), \
+        #                             self.S.franka_lower_limits, \
+        #                             np.zeros(len(self.S.update_plant_pose_tensor()))))
+
+        # obs_high = np.concatenate((np.ones(len_von_mises)*10e10,\
+        #                             self.S.franka_upper_limits,\
+        #                             np.ones(len(self.S.update_plant_pose_tensor()))*10))
+
+        obs_low = np.concatenate((self.S.franka_lower_limits, \
+                                    np.zeros(len(self.S.update_plant_pose_tensor()))))
+
+        obs_high = np.concatenate((self.S.franka_upper_limits,\
+                                    np.ones(len(self.S.update_plant_pose_tensor()))*10))
+
+        # Obs: von mises stress, kinematic tensor (franka pose, sb pose)
+        self.observation_space = spaces.Box(low = obs_low, high = obs_high)
+
+        self.steps = 0
 
     def _take_action(self, action):
-        if action == 1:
-            # self.force+=10
-            self.P.apply_force(self.force, 1.5)
-            return False
-        elif action == 0:
-            return True
-            # return False
+        action -= len(self.S.franka_lower_limits)
+        if np.sign(action) != -1:
+            action+=1
+
+        self.S.target_angles[abs(action)-1] += self.dtheta*np.sign(action)
+        self.S.command_franka_angles(self.S.target_angles)
+        self.steps+=1
 
     def step(self, action):
-        self.force+=10
-        self.P.apply_force(self.force, 1.5)
-        done = self._take_action(action)
-        nu = self.P.calculate_occlusion()
-        gamma = 0
-        alpha = 0
-
-        if done and nu>0:
-            gamma = -500
-        elif nu == 0:
+        self._take_action(action)
+        done = self.S.red_index>0
+        reward = 0
+        if done:
+            reward =1
+            print('Hit the jackpot')
+        if self.steps > 100:
             done = True
-            gamma = 500
-
-        k = sum(abs(self.P.max_von_mises))*10**-10
-        alpha = -k**2
-        beta = -30*nu
-
-        reward = alpha + gamma + beta
+            print('Hit step limit yeet')
 
         obs = self._next_observation()
 
-        return obs, reward, done, {'gamma': gamma, 'beta' : beta, 'occ' : nu, 'alpha' : alpha}
+        return obs, reward, done, {}
 
     def _next_observation(self):
-        return np.concatenate([self.P.x, self.P.y, np.array([self.P.fruit_y_center, self.P.fruit_x_center, self.P.fruit_radius, self.force])])
-        # return np.array([self.force])
+        return np.array(np.concatenate((self.S.current_angles, self.S.plant_pose)))
 
     def reset(self):
-        self.force = 0
-        self.P.apply_force(0, 1.5)
+        self.steps = 0
+        self.S.command_franka_angles(np.zeros(9))
         return self._next_observation()
