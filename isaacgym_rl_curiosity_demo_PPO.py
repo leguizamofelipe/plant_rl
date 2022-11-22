@@ -1,46 +1,36 @@
+import torch
+import torch.nn as nn
+import numpy as np
+from isaacgym_sim.isaacgym_env import IsaacGymPlantEnv
 
+import functools
 
+import gym
 
-parser.add_argument("--batch-size", type=int, default=64, help="Minibatch size")
-args = parser.parse_args()
+import pfrl
+from pfrl import experiments, utils
+from pfrl.agents import PPO
 
-logging.basicConfig(level=args.log_level)
+num_envs = 1
 
-# Set a random seed used in PFRL
-utils.set_random_seed(args.seed)
+outdir = experiments.prepare_output_dir('out')
 
-# Set different random seeds for different subprocesses.
-# If seed=0 and processes=4, subprocess seeds are [0, 1, 2, 3].
-# If seed=1 and processes=4, subprocess seeds are [4, 5, 6, 7].
-process_seeds = np.arange(args.num_envs) + args.seed * args.num_envs
-assert process_seeds.max() < 2 ** 32
-
-args.outdir = experiments.prepare_output_dir(args, args.outdir)
-
-def make_env(process_idx, test):
-    env = gym.make(args.env)
-    # Use different random seeds for train and test envs
-    process_seed = int(process_seeds[process_idx])
-    env_seed = 2 ** 32 - 1 - process_seed if test else process_seed
-    env.seed(env_seed)
+def make_env():
+    env = IsaacGymPlantEnv()
     # Cast observations to float32 because our model uses float32
     env = pfrl.wrappers.CastObservationToFloat32(env)
-    if args.monitor:
-        env = pfrl.wrappers.Monitor(env, args.outdir)
-    if args.render:
-        env = pfrl.wrappers.Render(env)
     return env
 
 def make_batch_env(test):
     return pfrl.envs.MultiprocessVectorEnv(
         [
             functools.partial(make_env, idx, test)
-            for idx, env in enumerate(range(args.num_envs))
+            for idx, env in enumerate(range(num_envs))
         ]
     )
 
 # Only for getting timesteps, and obs-action spaces
-sample_env = gym.make(args.env)
+sample_env = IsaacGymPlantEnv()
 timestep_limit = sample_env.spec.max_episode_steps
 obs_space = sample_env.observation_space
 action_space = sample_env.action_space
@@ -96,14 +86,19 @@ model = pfrl.nn.Branched(policy, vf)
 
 opt = torch.optim.Adam(model.parameters(), lr=3e-4, eps=1e-5)
 
+update_interval = 2048
+batch_size = 64
+epochs = 10
+steps = 10e6
+
 agent = PPO(
     model,
     opt,
     obs_normalizer=obs_normalizer,
-    gpu=args.gpu,
-    update_interval=args.update_interval,
-    minibatch_size=args.batch_size,
-    epochs=args.epochs,
+    gpu=True,
+    update_interval=update_interval,
+    minibatch_size=batch_size,
+    epochs=epochs,
     clip_eps_vf=None,
     entropy_coef=0,
     standardize_advantages=True,
@@ -111,47 +106,25 @@ agent = PPO(
     lambd=0.97,
 )
 
-if args.load or args.load_pretrained:
-    # either load or load_pretrained must be false
-    assert not args.load or not args.load_pretrained
-    if args.load:
-        agent.load(args.load)
-    else:
-        agent.load(utils.download_model("PPO", args.env, model_type="final")[0])
+# if load or load_pretrained:
+#     # either load or load_pretrained must be false
+#     assert not load or not load_pretrained
+#     if load:
+#         agent.load(load)
+#     else:
+#         agent.load(utils.download_model("PPO", env, model_type="final")[0])
 
-if args.demo:
-    env = make_batch_env(True)
-    eval_stats = experiments.eval_performance(
-        env=env,
-        agent=agent,
-        n_steps=None,
-        n_episodes=args.eval_n_runs,
-        max_episode_len=timestep_limit,
-    )
-    print(
-        "n_runs: {} mean: {} median: {} stdev {}".format(
-            args.eval_n_runs,
-            eval_stats["mean"],
-            eval_stats["median"],
-            eval_stats["stdev"],
-        )
-    )
-    import json
-    import os
 
-    with open(os.path.join(args.outdir, "demo_scores.json"), "w") as f:
-        json.dump(eval_stats, f)
-else:
-    experiments.train_agent_batch_with_evaluation(
-        agent=agent,
-        env=make_batch_env(False),
-        eval_env=make_batch_env(True),
-        outdir=args.outdir,
-        steps=args.steps,
-        eval_n_steps=None,
-        eval_n_episodes=args.eval_n_runs,
-        eval_interval=args.eval_interval,
-        log_interval=args.log_interval,
-        max_episode_len=timestep_limit,
-        save_best_so_far_agent=False,
-    )
+experiments.train_agent_batch_with_evaluation(
+    agent=agent,
+    env=make_batch_env(False),
+    eval_env=make_batch_env(True),
+    outdir=outdir,
+    steps=steps,
+    eval_n_steps=None,
+    eval_n_episodes=100,
+    eval_interval=100000,
+    log_interval=1000,
+    max_episode_len=timestep_limit,
+    save_best_so_far_agent=False,
+)
