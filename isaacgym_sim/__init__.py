@@ -248,10 +248,10 @@ class Simulation():
         self.calc_red_index()
 
         # Step rendering
-        # self.gym.step_graphics(self.sim)
-        # self.gym.draw_viewer(self.viewer, self.sim, False)
-        # self.gym.sync_frame_time(self.sim)
-        # self.count+=1
+        self.gym.step_graphics(self.sim)
+        self.gym.draw_viewer(self.viewer, self.sim, False)
+        self.gym.sync_frame_time(self.sim)
+        self.count+=1
 
         self.error = self.target_angles - np.array(self.current_angles)
         # print(np.round(error,3))

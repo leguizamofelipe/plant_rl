@@ -1,7 +1,46 @@
+from isaacgym_sim.isaacgym_env import IsaacGymPlantEnv
+from stable_baselines3 import PPO
+from stable_baselines3.ppo.policies import MlpPolicy
+from stable_baselines3.common.callbacks import BaseCallback
+
+class CustomCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        super(CustomCallback, self).__init__(verbose)
+
+    def _on_step(self) -> bool:
+        # self.model.get_env().envs[0].env.value = self.locals['values']
+        # self.model.get_env().envs[0].env.logprobs = self.locals['log_probs']
+        return True
+
+    def fetch_vals_logprobs(self, value, logprobs):
+        self.model.get_env().envs[0].env.value = value
+        self.model.get_env().envs[0].env.logprobs = logprobs
+
+    def get_intrinsic_reward(self):
+        rollout_int_reward = torch.tensor(self.model.get_env().envs[0].env.reward_buffer, dtype=torch.float32, device = torch.device('cuda:0'))
+
+        return rollout_int_reward
+
+n_steps = 256
+
+env = IsaacGymPlantEnv()
+env.icm_steps=n_steps
+
+import torch
+callback = CustomCallback()
+
+time_steps = 1000000
+
+model = PPO(MlpPolicy, env, verbose = 1, device = 'cuda', n_steps=n_steps)
+
+model.learn(total_timesteps=int(time_steps), n_eval_episodes = 30, callback=callback)
+
+'''
+from isaacgym_sim.isaacgym_env import IsaacGymPlantEnv
+
 import torch
 import torch.nn as nn
 import numpy as np
-from isaacgym_sim.isaacgym_env import IsaacGymPlantEnv
 
 import functools
 
@@ -15,7 +54,7 @@ num_envs = 1
 
 outdir = experiments.prepare_output_dir('out')
 
-def make_env():
+def make_env(one, two):
     env = IsaacGymPlantEnv()
     # Cast observations to float32 because our model uses float32
     env = pfrl.wrappers.CastObservationToFloat32(env)
@@ -30,14 +69,14 @@ def make_batch_env(test):
     )
 
 # Only for getting timesteps, and obs-action spaces
-sample_env = IsaacGymPlantEnv()
-timestep_limit = sample_env.spec.max_episode_steps
-obs_space = sample_env.observation_space
-action_space = sample_env.action_space
+# sample_env = IsaacGymPlantEnv()
+timestep_limit = 10e10
+obs_space = gym.spaces.Box(low = np.zeros(4899), high = np.ones(4899))
+action_space = gym.spaces.Discrete(18)
 print("Observation space:", obs_space)
 print("Action space:", action_space)
 
-assert isinstance(action_space, gym.spaces.Box)
+# assert isinstance(action_space, gym.spaces.Box)
 
 # Normalize observations based on their empirical mean and variance
 obs_normalizer = pfrl.nn.EmpiricalNormalization(
@@ -45,7 +84,7 @@ obs_normalizer = pfrl.nn.EmpiricalNormalization(
 )
 
 obs_size = obs_space.low.size
-action_size = action_space.low.size
+action_size = 1
 policy = torch.nn.Sequential(
     nn.Linear(obs_size, 64),
     nn.Tanh(),
@@ -95,7 +134,7 @@ agent = PPO(
     model,
     opt,
     obs_normalizer=obs_normalizer,
-    gpu=True,
+    gpu=0,
     update_interval=update_interval,
     minibatch_size=batch_size,
     epochs=epochs,
@@ -128,3 +167,4 @@ experiments.train_agent_batch_with_evaluation(
     max_episode_len=timestep_limit,
     save_best_so_far_agent=False,
 )
+'''

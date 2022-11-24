@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 import os
-# from isaacgym_sim.isaacgym_env import IsaacGymPlantEnv
-
-# env = IsaacGymPlantEnv()
 
 class ICM(nn.Module):
     def __init__(self, n_obs, n_actions, alpha=1, beta=0.2):
@@ -22,32 +19,37 @@ class ICM(nn.Module):
         device = 'cuda:0'
         self.to(device)
 
+        self.gpu = torch.device(device)
+
     def forward(self, state, new_state, action):
         # Inverse model forward pass
-        inverse_in = torch.cat([state, new_state], dim=1)
-        inverse = torch.functional.elu(self.inverse(inverse_in))
+        inverse_in = torch.cat([state, new_state], dim=1).to(self.gpu)
+        inverse = nn.functional.elu(self.inverse(inverse_in))
         pi_logits = self.pi_logits(inverse)
 
         # Forward model forward pass
         action = action.reshape((action.size()[0], 1))
-        forward_input = torch.cat([state, action], dim=1)
-        dense = torch.functional.elu(self.dense1(forward_input))
+        forward_input = torch.cat([state, action], dim=1).to(self.gpu)
+        dense = nn.functional.elu(self.dense1(forward_input))
         state_ = self.new_state(dense)
 
         return pi_logits, state_
 
     def calc_loss(self, state, new_state, action):
-        state = torch.tensor(state, dtype=torch.float)
-        action = torch.tensor(action, dtype=torch.float)
-        new_state = torch.tensor(new_state, dtype=torch.float)
+        state = torch.tensor(state, dtype=torch.float, device=self.gpu)
+        action = torch.tensor(action, dtype=torch.float, device=self.gpu)
+        new_state = torch.tensor(new_state, dtype=torch.float, device=self.gpu)
 
         pi_logits, state = self.forward(state, new_state, action)
 
         # Find inverse loss
-        inverse_loss = (1-self.beta)*nn.CrossEntropyLoss(pi_logits, action.to(torch.long))
+        cross_entropy = nn.CrossEntropyLoss()
+        inverse_loss = (1-self.beta)*cross_entropy(pi_logits, action.to(dtype=torch.long))
 
         # Find forward loss
-        forward_loss = self.beta*nn.MSELoss(state, new_state)
+
+        mse = nn.MSELoss()
+        forward_loss = self.beta*mse(state, new_state)
 
         intrinsic_reward = self.alpha*((state-new_state).pow(2)).mean(dim=1)
         return intrinsic_reward, inverse_loss, forward_loss

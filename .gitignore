@@ -12,6 +12,8 @@ interop_images/
 
 .png
 
+out/
+
 output/
 assets/
 policies/
