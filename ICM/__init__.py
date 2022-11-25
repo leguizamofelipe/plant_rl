@@ -16,7 +16,7 @@ class ICM(nn.Module):
         self.dense1 = nn.Linear(n_obs+1, 256)
         self.new_state = nn.Linear(256, n_obs)
 
-        device = 'cuda:0'
+        device = 'cpu'
         self.to(device)
 
         self.gpu = torch.device(device)

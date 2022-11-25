@@ -20,7 +20,6 @@ class Simulation():
         # Set controller parameters
         # IK params
         self.damping = 0.05
-
         self.device = 'cpu'
 
         # Parse arguments
@@ -58,8 +57,8 @@ class Simulation():
         self.gym.add_ground(self.sim, plane_params)
 
         # Set up the env grid
-        self.num_envs = 1
-        spacing = 3
+        self.num_envs = 4
+        spacing = 8
         env_lower = gymapi.Vec3(-spacing, 0.0, -spacing)
         env_upper = gymapi.Vec3(spacing, spacing, spacing)
         num_per_row = int(math.sqrt(self.num_envs))
@@ -109,7 +108,8 @@ class Simulation():
         # get link index of panda hand, which we will use as end effector
         franka_link_dict = self.gym.get_asset_rigid_body_dict(franka_asset)
         franka_hand_index = franka_link_dict["panda_hand"]
-        self.target_angles = np.zeros(9, np.float32)
+        self.target_angles = [np.zeros(9, np.float32)]*self.num_envs
+        self.current_angles = [np.zeros(9, np.float32)]*self.num_envs
 
         ############################################# DEFORMABLE BODY SETUP #########################################
 
@@ -138,6 +138,7 @@ class Simulation():
         self.init_pos_list = []
         self.init_rot_list = []
         self.hand_idxs = []
+        self.red_indexes = np.zeros(self.num_envs)
 
         for i in range(self.num_envs):
             # create env
@@ -211,12 +212,10 @@ class Simulation():
             self.gym.set_camera_location(cam_handle, env, cam_pos, cam_target)
             self.cams.append(cam_handle)
 
+            # point camera at env
+            self.gym.viewer_camera_look_at(self.viewer, env, cam_pos, cam_target)
 
-        # point camera at middle env
-        middle_env = self.envs[0]
-        self.gym.viewer_camera_look_at(self.viewer, middle_env, cam_pos, cam_target)
-
-        self.gym.prepare_sim(self.sim)
+            self.gym.prepare_sim(self.sim)
 
         
     ############################################### END CONFIGURE AND INITIALIZE  #############################################
@@ -240,12 +239,11 @@ class Simulation():
         self.gym.refresh_jacobian_tensors(self.sim)
         self.gym.refresh_mass_matrix_tensors(self.sim)
         self.gym.refresh_particle_state_tensor(self.sim)
-        # self.gym.refresh
         
-        self.update_current_franka_angles()
-        self.von_mises = self.find_von_mises()
-        self.update_image_tensor()
-        self.calc_red_index()
+        # self.get_current_franka_angles()
+        # self.von_mises = self.find_von_mises()
+        # self.update_image_tensors()
+        # self.calc_red_index()
 
         # Step rendering
         self.gym.step_graphics(self.sim)
@@ -253,9 +251,8 @@ class Simulation():
         self.gym.sync_frame_time(self.sim)
         self.count+=1
 
-        self.error = self.target_angles - np.array(self.current_angles)
-        # print(np.round(error,3))
-        return max(abs(self.error)) < 0.02
+        # self.error = self.target_angles - np.array(self.current_angles)
+        # return max(abs(self.error)) < 0.02
 
     def end_sim(self):
         self.gym.destroy_viewer(self.viewer)
@@ -272,26 +269,32 @@ class Simulation():
                                         + (stress.z.z - stress.x.x) ** 2 \
                                         + 6 * (stress.y.z ** 2 + stress.z.x ** 2 + stress.x.y ** 2))) for stress in tet_stress]
 
-    def update_current_franka_angles(self):
-        self.current_angles = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))[:,0] 
-        return self.current_angles
+    def get_franka_angles(self, env_n):
+        state = self.gym.get_actor_dof_states(self.envs[env_n], self.franka_handles[env_n], gymapi.STATE_POS)
+        self.current_angles[env_n] = np.array(list(zip(*state))[0], dtype = np.float32)
 
-    def command_franka_angles(self, angles):
-        self.target_angles = np.clip(angles, a_min = self.franka_lower_limits, a_max=self.franka_upper_limits)
-        state_tensor = torch.tensor(self.target_angles, dtype=torch.float32)
-        self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(state_tensor))
-        there = False
+        return self.current_angles[env_n]
 
-        timeout = 0
+    def set_franka_angles(self, angles, env_n):
+        angles = np.clip(angles, a_min = self.franka_lower_limits, a_max=self.franka_upper_limits, dtype = np.float32)
+        self.target_angles[env_n] = angles
+        # state_tensor = torch.tensor(self.target_angles, dtype=torch.float32)
+        # self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(state_tensor))
+        self.gym.set_actor_dof_position_targets(self.envs[env_n], self.franka_handles[env_n], np.array(angles))       
 
-        while not there and not self.gym.query_viewer_has_closed(self.viewer):
-            there = self.sim_step()
-            timeout+=1
-            if timeout>20:
-                self.command_franka_angles(self.current_angles)
-                break
+        self.sim_step()
+        # there = False
+
+        # timeout = 0
+
+        # while not there and not self.gym.query_viewer_has_closed(self.viewer):
+        #     there = self.sim_step()
+        #     timeout+=1
+        #     if timeout>20:
+        #         self.command_franka_angles(self.current_angles)
+        #         break
         
-        return timeout
+        # return timeout
             
 
     def update_plant_pose_tensor(self):
@@ -299,24 +302,24 @@ class Simulation():
         self.plant_pose = flex_pose_tensor[:,0:3].flatten()
         return self.plant_pose
 
-    def update_image_tensor(self):
+    def update_image_tensors(self):
         self.gym.render_all_camera_sensors(self.sim)
         self.gym.start_access_image_tensors(self.sim)
         # obtain camera tensor
-        raw_tensor = self.gym.get_camera_image_gpu_tensor(self.sim, self.envs[0], self.cams[0], gymapi.IMAGE_COLOR)
-        self.cam_tensor = gymtorch.wrap_tensor(raw_tensor)
-        self.cam_img = self.cam_tensor.cpu().numpy()
+        raw_tensors = [self.gym.get_camera_image_gpu_tensor(self.sim, self.envs[i], self.cams[0], gymapi.IMAGE_COLOR) for i in range(0, self.num_envs)]
+        self.cam_tensors = [gymtorch.wrap_tensor(tensor) for tensor in raw_tensors]
+        self.cam_imgs = [tensor.cpu().numpy() for tensor in self.cam_tensors]
 
-    def save_image(self):
-        self.update_image_tensor()
-        print("Got camera tensor with shape", self.cam_tensor.shape)
-        fname = os.path.join(self.img_dir, "cam-%04d-%04d.png" % (self.count, 0))
-        imageio.imwrite(fname, self.cam_img)
+    def save_image(self, env_n = 0):
+        self.update_image_tensors()
+        print("Got camera tensor with shape", self.cam_tensors[env_n].shape)
+        fname = os.path.join(self.img_dir, "cam-%04d-%04d-%04d.png" % (env_n, self.count, 0))
+        imageio.imwrite(fname, self.cam_imgs[env_n])
 
-    def calc_red_index(self):
-        red = self.cam_img[:,:,0]>210
-        green = self.cam_img[:,:,1]<40
-        blue = self.cam_img[:,:,2]<40
+    def calc_red_index(self, env_n = 0):
+        red = self.cam_imgs[env_n][:,:,0]>210
+        green = self.cam_imgs[env_n][:,:,1]<40
+        blue = self.cam_imgs[env_n][:,:,2]<40
 
-        self.red_index = np.sum(np.logical_and(red,np.logical_and(blue, green)))/(red.shape[0]*red.shape[1])
+        self.red_indexes[env_n] = np.sum(np.logical_and(red,np.logical_and(blue, green)))/(red.shape[0]*red.shape[1])
         
