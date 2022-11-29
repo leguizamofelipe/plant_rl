@@ -5,6 +5,9 @@ from optimizer import SharedAdam
 from ICM.memory import Memory
 from isaacgym_sim.isaacgym_env import IsaacGymPlantEnv
 import torch
+import numpy as np
+import time
+import matplotlib.pyplot as plt
 
 class ParallelEnv:
     def __init__(self, input_shape, n_actions, icm, simulation, n_envs=8):
@@ -45,44 +48,77 @@ class ParallelEnv:
 
             env_memories.append(Memory())
 
-            env_ep_done.append(False)
-            env_hx.append(torch.zeros(1, 256))
-
         max_eps, episode = 1000, 0
         # Go through an episode for all environments
         # Some may finish quicker than others
         env_t_steps = [0]*n_envs
 
+        L_Fs = []
+        L_Is = []
+        ex_rew = []
+        in_rew = []
+
         while episode < max_eps:
+            env_ep_done = [False]*n_envs
+            env_hx = [torch.zeros(1, 256)]*n_envs
+            env_ep_steps = [0]*n_envs
+            env_values = [None]*n_envs
+            env_logprob = [None]*n_envs  
+            actions = [None]*n_envs          
+
             for env_index in range(0, n_envs):
                 # Keep the rest the same as per ICM multithread implementation
                 env_obs[env_index] = envs[env_index].reset()
-                env_hx[env_index] = torch.zeros(1, 256)
-                
-            # scores = [0]*n_envs
-            env_ep_done = [False]*n_envs
-            env_ep_steps = [0]*n_envs            
 
+            # While each episode is not done (each timestep)
             while sum(env_ep_done) != n_envs:
+                # Preliminary step to get actions assigned and started
+                for env_index in range(0, n_envs):
+                    obs = env_obs[env_index]
+                    hx = env_hx[env_index]
+                    state = torch.tensor([obs], dtype=torch.float)
+                    local_agent = env_local_agents[env_index]
+                    action, value, log_prob, hx = local_agent(state, hx)
+                    env = envs[env_index]
+                    env._take_action(action)
+                    env_hx[env_index]=hx
+                    env_values[env_index] = value
+                    env_logprob[env_index] = log_prob
+                    actions[env_index] = action
+
+                t_0 = time.time()
+                target=np.array(envs[0].S.target_angles)
+                timeout = 0
+                while timeout<10:
+                    envs[0].S.sim_step(skip_images = True, step_printout=False)
+                    timeout+=1
+                end = np.array(envs[0].S.current_angles)
+                t_f = time.time()
+
+                # print(f'\nStepped through {n_envs} envs: {t_f-t_0}\nMax error: {(end-target).max()*180/np.pi} degrees')
+                
+
                 for env_index in range(0, n_envs):
                     if not env_ep_done[env_index]:
-                        local_agent = env_local_agents[env_index]
                         memory = env_memories[env_index]
                         env = envs[env_index]
                         obs = env_obs[env_index]
-                        hx = env_hx[env_index]
+                        log_prob = env_logprob[env_index]
+                        value = env_values[env_index]
+                        action = actions[env_index]
 
-                        state = torch.tensor([obs], dtype=torch.float)
-                        action, value, log_prob, hx = local_agent(state, hx)
                         obs_, reward, done, info = env.step(action)
+
                         env_ep_done[env_index] = done
                         env_t_steps[env_index] += 1
                         env_ep_steps[env_index] += 1
                         # score += reward
-                        reward = 0  # turn off extrinsic rewards
+                        # reward = 0  # turn off extrinsic rewards
                         memory.remember(obs, action, reward, obs_, value, log_prob)
                         env_obs[env_index] = obs_
                         if env_ep_steps[env_index] % T_MAX == 0 or done:
+                            local_agent = env_local_agents[env_index]
+
                             local_icm = local_icms[env_index]
                             states, actions, rewards, new_states, values, log_probs = \
                                     memory.sample_memory()
@@ -90,17 +126,38 @@ class ParallelEnv:
                                 intrinsic_rewards, L_I, L_F = \
                                         local_icm.calc_loss(states, new_states, actions)
 
-                            loss = local_agent.calc_loss(obs, hx, done, rewards, values,
-                                                        log_probs, intrinsic_rewards)
+                            L_Fs.append(float(L_F))
+                            L_Is.append(float(L_I))
 
+                            plt.plot(L_Fs, label = 'Forward Loss')
+                            plt.plot(L_Is, label = 'Inverse Loss')
+                            plt.legend()
+                            plt.tight_layout()
+                            plt.savefig('out/losses.png')
+                            plt.close()
+
+                            loss = local_agent.calc_loss(obs, hx, done, rewards, values,
+                                                        log_probs, intrinsic_rewards+torch.tensor(rewards, dtype=torch.float32))
+                            ex_rew=ex_rew+list(rewards)
+                            in_rew=in_rew+list(intrinsic_rewards.detach().numpy())
+                            
+                            plt.plot(ex_rew, label = 'Extrinsic Reward')
+                            plt.plot(in_rew, label = 'Intrinsic Reward')
+                            plt.legend()
+                            plt.tight_layout()
+                            plt.savefig('out/rewards.png')
+                            plt.close()
+                            
                             optimizer.zero_grad()
                             hx = hx.detach_()
                             if icm:
                                 icm_optimizer.zero_grad()
                                 (L_I + L_F).backward()
 
-                            loss.backward()
+                            loss.backward(retain_graph = True)
                             torch.nn.utils.clip_grad_norm_(local_agent.parameters(), 40)
+
+                            loss.detach()
 
                             for local_param, global_param in zip(
                                                     local_agent.parameters(),

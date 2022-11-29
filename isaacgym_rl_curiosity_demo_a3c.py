@@ -9,8 +9,8 @@ from parallel_env import ParallelEnv
 import torch.multiprocessing as mp
 
 n_envs = simulation.num_envs
-n_actions = 18
-n_obs = 9
+n_actions = 14
+n_obs = 4899
 
 input_shape = [n_obs] 
 
