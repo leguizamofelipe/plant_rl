@@ -17,8 +17,8 @@ class IsaacGymPlantEnv(gym.Env):
         self.env_n = env_n
         self.headless = headless
 
-        obs_low = np.concatenate([np.zeros(self.S.n_plant_xyz_points),self.S.franka_lower_limits])
-        obs_high = np.concatenate([5*np.ones(self.S.n_plant_xyz_points),self.S.franka_upper_limits])
+        obs_low = np.concatenate([-500*np.ones(self.S.n_plant_xyz_points),self.S.franka_lower_limits])
+        obs_high = np.concatenate([500*np.ones(self.S.n_plant_xyz_points),self.S.franka_upper_limits])
 
         # Obs: von mises stress, kinematic tensor (franka pose, sb pose)
         self.observation_space = spaces.Box(low = obs_low, high = obs_high)
@@ -51,6 +51,8 @@ class IsaacGymPlantEnv(gym.Env):
 
         if not (max(self.S.von_mises) > 400000 or max(self.S.von_mises) < 350000):
             reward-=5
+        else:
+            print('Made contact')
 
         if done:
             reward=+10
@@ -63,7 +65,7 @@ class IsaacGymPlantEnv(gym.Env):
 
     def _next_observation(self):
         # return np.array(np.concatenate((self.S.current_angles[self.env_n], self.S.plant_pose[self.env_n])))
-        return np.concatenate([self.S.plant_pose[self.env_n], self.S.get_franka_angles(self.env_n)])
+        return np.concatenate([100*self.S.plant_pose[self.env_n], self.S.get_franka_angles(self.env_n)])
 
     def reset(self):
         self.ep_steps = 0
