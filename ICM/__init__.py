@@ -3,9 +3,9 @@ import torch.nn as nn
 import os
 
 class ICM(nn.Module):
-    def __init__(self, n_obs, n_actions, alpha=1, beta=0.2):
+    def __init__(self, n_obs, n_actions, intrinsic_gain=1, beta=0.2):
         super().__init__()
-        self.alpha = alpha
+        self.intrinsic_gain = intrinsic_gain
         self.beta = beta
 
         # Set up the inverse model
@@ -51,5 +51,5 @@ class ICM(nn.Module):
         mse = nn.MSELoss()
         forward_loss = self.beta*mse(state, new_state)
 
-        intrinsic_reward = self.alpha*((state-new_state).pow(2)).mean(dim=1)
+        intrinsic_reward = self.intrinsic_gain*((state-new_state).pow(2)).mean(dim=1)
         return intrinsic_reward, inverse_loss, forward_loss

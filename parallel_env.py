@@ -19,10 +19,9 @@ class ParallelEnv:
             global_icm = None
             icm_optimizer = None
         else:
-            global_icm = ICM(*input_shape, n_actions)
+            global_icm = ICM(*input_shape, n_actions, intrinsic_gain=1/4000)
             global_icm.share_memory()
             icm_optimizer = SharedAdam(global_icm.parameters())
-
 
         T_MAX = 20
         envs = []
@@ -36,11 +35,11 @@ class ParallelEnv:
         local_icms = []
 
         for i in range(0, n_envs):
-            envs.append(IsaacGymPlantEnv(simulation, i))
+            envs.append(IsaacGymPlantEnv(simulation, i, observation_mode='Grayscale Image', action_mode='All Joints'))
             env_local_agents.append(ActorCritic(input_shape, n_actions))
 
             if icm:
-                local_icms.append(ICM(input_shape[0], n_actions))
+                local_icms.append(ICM(input_shape[0], n_actions, intrinsic_gain=1/4000))
                 algo = 'ICM'
             else:
                 intrinsic_rewards.append(torch.zeros(1))
@@ -67,7 +66,7 @@ class ParallelEnv:
             actions = [None]*n_envs          
 
             for env_index in range(0, n_envs):
-                # Keep the rest the same as per ICM multithread implementation
+                # Keep the rest the same as per ICM m(40, 40)ultithread implementation
                 env_obs[env_index] = envs[env_index].reset()
 
             # While each episode is not done (each timestep)
@@ -90,13 +89,10 @@ class ParallelEnv:
                 target=np.array(envs[0].S.target_angles)
                 timeout = 0
                 while timeout<10:
-                    envs[0].S.sim_step(skip_images = True, step_printout=False)
+                    envs[0].S.sim_step(skip_images = False, step_printout=False)
                     timeout+=1
                 end = np.array(envs[0].S.current_angles)
                 t_f = time.time()
-
-                # print(f'\nStepped through {n_envs} envs: {t_f-t_0}\nMax error: {(end-target).max()*180/np.pi} degrees')
-                
 
                 for env_index in range(0, n_envs):
                     if not env_ep_done[env_index]:

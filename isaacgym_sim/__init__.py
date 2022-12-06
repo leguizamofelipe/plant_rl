@@ -9,6 +9,7 @@ import time
 import os
 import numpy as np
 import torch
+import cv2
 
 np.set_printoptions(suppress=True)
 
@@ -31,6 +32,8 @@ class Simulation():
         sim_params.dt = 1.0 / 60.0
         sim_params.substeps = 2
 
+        self.grayscale_shape = (40, 40)
+
         args.physics_engine = gymapi.SIM_FLEX
 
         sim_params.flex.solver_type = 5
@@ -42,7 +45,7 @@ class Simulation():
 
         #For deform bodies
         # enable Von-Mises stress visualization
-        sim_params.stress_visualization = False
+        sim_params.stress_visualization = True
         sim_params.stress_visualization_min = 0.0
         sim_params.stress_visualization_max = 1e6
 
@@ -88,7 +91,7 @@ class Simulation():
         self.franka_lower_limits = franka_lower_limits
 
         # Adjust the lims a bit to force franka to hit the plant
-        self.franka_lower_limits[0] = 0.65
+        # self.franka_lower_limits[0] = 0.65
 
         franka_ranges = franka_upper_limits - franka_lower_limits
         franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
@@ -177,7 +180,7 @@ class Simulation():
             hand_idx = self.gym.find_actor_rigid_body_index(env, franka_handle, "panda_hand", gymapi.DOMAIN_SIM)
             self.hand_idxs.append(hand_idx)
 
-            deform_position = gymapi.Vec3(2, 0.1, -2)
+            deform_position = gymapi.Vec3(2, 0, -2)
 
             # Add deformable body
             pose = gymapi.Transform()
@@ -201,8 +204,8 @@ class Simulation():
             asset_options.fix_base_link = True
             pose = gymapi.Transform()
             pose.p = deform_position#gymapi.Vec3(2, 0.1, -2)
-            pose.p.x+0.3
-            pose.p.z+0.3
+            pose.p.x+=0.1
+            pose.p.z+=0.1
             base_asset = self.gym.create_box(self.sim, 0.3, 0.1, 0.3, asset_options)
             base_actor = self.gym.create_actor(env, base_asset, pose, "base", i, 0, 0)
 
@@ -228,16 +231,18 @@ class Simulation():
         
         n_xyz = gymtorch.wrap_tensor(self.gym.acquire_particle_state_tensor(self.sim)).shape[0]
         self.n_plant_xyz_points = int(n_xyz/self.num_envs)
+
+        self.update_image_tensors()
                     
     ############################################### END CONFIGURE AND INITIALIZE  #############################################
         self.count = 0
 
-    def control_ik(self, dpose):
-        # solve damped least squares
-        j_eef_T = torch.transpose(self.j_eef, 1, 2)
-        lmbda = torch.eye(6, device=self.device) * (self.damping ** 2)
-        u = (j_eef_T @ torch.inverse(self.j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 7)
-        return u
+    # def control_ik(self, dpose):
+    #     # solve damped least squares
+    #     j_eef_T = torch.transpose(self.j_eef, 1, 2)
+    #     lmbda = torch.eye(6, device=self.device) * (self.damping ** 2)
+    #     u = (j_eef_T @ torch.inverse(self.j_eef @ j_eef_T + lmbda) @ dpose).view(self.num_envs, 7)
+    #     return u
 
     def sim_step(self, skip_images = False, step_printout = False):
         t_0 = time.time()
@@ -255,7 +260,7 @@ class Simulation():
         self.gym.refresh_mass_matrix_tensors(self.sim)
         self.gym.refresh_particle_state_tensor(self.sim)
 
-        self.von_mises= self.find_von_mises()
+        self.top_ten_mean, self.von_mises= self.find_von_mises()
 
         self.update_plant_pose_tensor()
         
@@ -285,11 +290,17 @@ class Simulation():
         (_, tet_stress) = self.gym.get_sim_tetrahedra(self.sim)               
 
         # Get von mises stress from Cauchy tensor
-        return  [np.sqrt(0.5 * \
-                                        ((stress.x.x - stress.y.y) ** 2 \
-                                        + (stress.y.y - stress.z.z) ** 2 \
-                                        + (stress.z.z - stress.x.x) ** 2 \
-                                        + 6 * (stress.y.z ** 2 + stress.z.x ** 2 + stress.x.y ** 2))) for stress in tet_stress]
+        von_mises = np.array([np.sqrt(0.5 * \
+                                                ((stress.x.x - stress.y.y) ** 2 \
+                                                + (stress.y.y - stress.z.z) ** 2 \
+                                                + (stress.z.z - stress.x.x) ** 2 \
+                                                + 6 * (stress.y.z ** 2 + stress.z.x ** 2 + stress.x.y ** 2))) for stress in tet_stress])
+        sorted_index_array = np.argsort(von_mises)
+        sorted_array = von_mises[sorted_index_array]
+        n = 10
+        top_ten = sorted_array[-n : ]
+
+        return top_ten.mean(), von_mises
 
     def get_franka_angles(self, env_n):
         state = self.gym.get_actor_dof_states(self.envs[env_n], self.franka_handles[env_n], gymapi.STATE_POS)
@@ -340,17 +351,26 @@ class Simulation():
         # obtain camera tensor
         raw_tensors = [self.gym.get_camera_image_gpu_tensor(self.sim, self.envs[i], self.cams[0], gymapi.IMAGE_COLOR) for i in range(0, self.num_envs)]
         self.cam_tensors = [gymtorch.wrap_tensor(tensor) for tensor in raw_tensors]
-        self.cam_imgs = [tensor.cpu().numpy() for tensor in self.cam_tensors]
+        self.rgb_cam_imgs = [tensor.cpu().numpy() for tensor in self.cam_tensors]
+        self.grayscale_cam_imgs = [self.rgb_to_grayscale(img) for img in self.rgb_cam_imgs]
 
     def save_image(self, env_n = 0):
         self.update_image_tensors()
         print("Got camera tensor with shape", self.cam_tensors[env_n].shape)
         fname = os.path.join(self.img_dir, "cam-%04d-%04d-%04d.png" % (env_n, self.count, 0))
-        imageio.imwrite(fname, self.cam_imgs[env_n])
+        imageio.imwrite(fname, self.rgb_cam_imgs[env_n])
 
     def calc_red_index(self, env_n = 0):
-        reds = [img[:,:,0]>210 for img in self.cam_imgs]
-        greens = [img[:,:,1]<40 for img in self.cam_imgs]
-        blues = [img[:,:,2]<40 for img in self.cam_imgs]
+        reds = [img[:,:,0]>210 for img in self.rgb_cam_imgs]
+        greens = [img[:,:,1]<40 for img in self.rgb_cam_imgs]
+        blues = [img[:,:,2]<40 for img in self.rgb_cam_imgs]
 
         self.red_indexes = [np.sum(np.logical_and(reds[i],np.logical_and(blues[i], greens[i])))/(reds[i].shape[0]*reds[i].shape[1]) for i in range(0, len(blues))]
+
+    def rgb_to_grayscale(self, rgb):
+        r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
+        gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+
+        gray_rescaled = cv2.resize(gray, self.grayscale_shape, interpolation=cv2.INTER_AREA)
+        
+        return gray_rescaled

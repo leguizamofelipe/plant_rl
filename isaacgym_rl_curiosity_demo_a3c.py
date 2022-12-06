@@ -10,7 +10,7 @@ import torch.multiprocessing as mp
 
 n_envs = simulation.num_envs
 n_actions = 14
-n_obs = 4899
+n_obs = 1600
 
 input_shape = [n_obs] 
 
