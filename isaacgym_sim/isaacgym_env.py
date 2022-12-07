@@ -43,10 +43,12 @@ class IsaacGymPlantEnv(gym.Env):
 
         self.ep_steps = 0
         self.total_steps = 0
+        self.hw_limit_steps = 0
+        self.total_eps = 0
 
     def _take_action(self, action):
         if self.action_mode=='All Joints':
-            action -= len(self.S.franka_lower_limits)
+            action -= 7
             if np.sign(action) != -1:
                 action+=1
             self.S.target_angles[self.env_n][abs(action)-1] += self.dtheta*np.sign(action)
@@ -69,23 +71,27 @@ class IsaacGymPlantEnv(gym.Env):
 
         if min(abs(self.S.current_angles[self.env_n][0:7] - self.S.franka_upper_limits[0:7])) < self.dtheta*3 or min(abs(self.S.current_angles[self.env_n][0:7] - self.S.franka_lower_limits[0:7])) < self.dtheta*3:
             reward += -5
-            print('Hit limits!')
+            # print('Hit limits!')
+            self.hw_limit_steps+=1
 
-        # if self.S.current_angles[self.env_n][0]<0.1:
-        #     reward-=5
-        # else:
-        #     print('Made contact')
-
-        if self.S.top_ten_mean > 250000:
+        if self.S.current_angles[self.env_n][0]<0.1:
             reward-=5
+            # print('Made contact')
+
+        # if self.S.top_ten_mean > 250000:
+        #     reward-=5
 
         if done:
             reward+=10
             self.clearances+=1
             # print('Cleared occlusion')
-        if self.ep_steps>=256:
+        if self.ep_steps>=50:
             done=True
             # print('Hit step limit')
+
+        if self.total_steps % 100 ==0:
+            print(f'\nHW Limits breached {100*self.hw_limit_steps/self.total_steps}% of time')
+            print(f'Cleared {self.clearances}% times')
 
         return obs_1, reward, done, {}
 
@@ -97,6 +103,7 @@ class IsaacGymPlantEnv(gym.Env):
 
     def reset(self):
         self.ep_steps = 0
+        self.total_eps+=1
         dof_states = np.zeros(9, dtype=gymapi.DofState.dtype)
         dof_states['pos'] = np.array([-0.2, 0.5, 0.75, -2, 1.25, 2.25, -1, 0, 0]) #np.array([1, 0.5, 0, -0.9425, 0, 1.12, 0, 0, 0])
         
@@ -105,7 +112,5 @@ class IsaacGymPlantEnv(gym.Env):
         self.S.set_franka_angles_target(dof_states['pos'], self.env_n)
         self.S.get_franka_angles(self.env_n)
         self.S.sim_step(skip_images = True)
-
-        print(f'Clearances: {self.clearances}')
 
         return self._next_observation()

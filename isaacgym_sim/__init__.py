@@ -180,7 +180,7 @@ class Simulation():
             hand_idx = self.gym.find_actor_rigid_body_index(env, franka_handle, "panda_hand", gymapi.DOMAIN_SIM)
             self.hand_idxs.append(hand_idx)
 
-            deform_position = gymapi.Vec3(2, 0, -2)
+            deform_position = gymapi.Vec3(1.9, 0, -2.1)
 
             # Add deformable body
             pose = gymapi.Transform()
