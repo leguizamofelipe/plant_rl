@@ -14,7 +14,7 @@ import cv2
 np.set_printoptions(suppress=True)
 
 class Simulation():
-    def __init__(self) -> None:
+    def __init__(self, n_envs = 1) -> None:
 
         ############################################### SIM SETUP  #############################################
         # Initialize gym
@@ -62,7 +62,7 @@ class Simulation():
         self.gym.add_ground(self.sim, plane_params)
 
         # Set up the env grid
-        self.num_envs = 3
+        self.num_envs = n_envs
         spacing = 8
         env_lower = gymapi.Vec3(-spacing, 0.0, -spacing)
         env_upper = gymapi.Vec3(spacing, spacing, spacing)

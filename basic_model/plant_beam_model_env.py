@@ -10,7 +10,7 @@ import random
 
 class PlantBeamModelPPOEnvironment(gym.Env):
     """A plant environment for OpenAI gym"""
-    metadata = {'render.modes': ['human']} # TODO understand what this does
+    metadata = {'render.modes': ['human']} 
 
     def __init__(self):
         self.P = PlantBeamModel()

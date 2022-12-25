@@ -5,10 +5,10 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 
-from basic_model.plant_beam_model_continuous_env import PlantBeamModelContinuousEnvironment
+from basic_model.plant_beam_model_env import PlantBeamModelPPOEnvironment
 
 # Environment definition
-env = PlantBeamModelContinuousEnvironment()
+env = PlantBeamModelPPOEnvironment()
 
 # Agent definition
 class QFunction(torch.nn.Module):
