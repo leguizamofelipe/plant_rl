@@ -105,7 +105,7 @@ class IsaacGymPlantEnv(gym.Env):
         self.ep_steps = 0
         self.total_eps+=1
         dof_states = np.zeros(9, dtype=gymapi.DofState.dtype)
-        dof_states['pos'] = np.array([-0.2, 0.5, 0.75, -2, 1.25, 2.25, -1, 0, 0]) #np.array([1, 0.5, 0, -0.9425, 0, 1.12, 0, 0, 0])
+        dof_states['pos'] = np.array([0.3, 0.5, 0.75, -2, 1.25, 2.25, -1, 0, 0]) #np.array([1, 0.5, 0, -0.9425, 0, 1.12, 0, 0, 0])
         
         # self.S.set_franka_angles(np.array([-1, 0.5, 0.75, -2, 1.25, 2.25, -1, 0, 0]), self.env_n)
         self.S.gym.set_actor_dof_states(self.S.envs[self.env_n], self.S.franka_handles[self.env_n], dof_states, gymapi.STATE_ALL)

@@ -112,64 +112,66 @@ class ParallelEnv:
                         # reward = 0  # turn off extrinsic rewards
                         memory.remember(obs, action, reward, obs_, value, log_prob)
                         env_obs[env_index] = obs_
-                        if env_ep_steps[env_index] % T_MAX == 0 or done:
-                            local_agent = env_local_agents[env_index]
 
-                            local_icm = local_icms[env_index]
-                            states, actions, rewards, new_states, values, log_probs = \
-                                    memory.sample_memory()
-                            if icm:
-                                intrinsic_rewards, L_I, L_F = \
-                                        local_icm.calc_loss(states, new_states, actions)
+                        with torch.autograd.set_detect_anomaly(True):
+                            if env_ep_steps[env_index] % T_MAX == 0 or done:
+                                local_agent = env_local_agents[env_index]
 
-                            L_Fs.append(float(L_F))
-                            L_Is.append(float(L_I))
+                                local_icm = local_icms[env_index]
+                                states, actions, rewards, new_states, values, log_probs = \
+                                        memory.sample_memory()
+                                if icm:
+                                    intrinsic_rewards, L_I, L_F = \
+                                            local_icm.calc_loss(states, new_states, actions)
 
-                            plt.plot(L_Fs, label = 'Forward Loss')
-                            plt.plot(L_Is, label = 'Inverse Loss')
-                            plt.legend()
-                            plt.tight_layout()
-                            plt.savefig('out/losses.png')
-                            plt.close()
+                                L_Fs.append(float(L_F))
+                                L_Is.append(float(L_I))
 
-                            loss = local_agent.calc_loss(obs, hx, done, rewards, values,
-                                                        log_probs, intrinsic_rewards+torch.tensor(rewards, dtype=torch.float32))
-                            ex_rew=ex_rew+list(rewards)
-                            in_rew=in_rew+list(intrinsic_rewards.detach().numpy())
-                            
-                            plt.plot(ex_rew, label = 'Extrinsic Reward')
-                            plt.plot(in_rew, label = 'Intrinsic Reward')
-                            plt.legend()
-                            plt.tight_layout()
-                            plt.savefig('out/rewards.png')
-                            plt.close()
-                            
-                            optimizer.zero_grad()
-                            hx = hx.detach_()
-                            if icm:
-                                icm_optimizer.zero_grad()
-                                (L_I + L_F).backward()
+                                plt.plot(L_Fs, label = 'Forward Loss')
+                                plt.plot(L_Is, label = 'Inverse Loss')
+                                plt.legend()
+                                plt.tight_layout()
+                                plt.savefig('out/losses.png')
+                                plt.close()
 
-                            loss.backward(retain_graph = True)
-                            torch.nn.utils.clip_grad_norm_(local_agent.parameters(), 40)
+                                loss = local_agent.calc_loss(obs, hx, done, rewards, values,
+                                                            log_probs, intrinsic_rewards+torch.tensor(rewards, dtype=torch.float32))
+                                ex_rew=ex_rew+list(rewards)
+                                in_rew=in_rew+list(intrinsic_rewards.detach().numpy())
+                                
+                                plt.plot(ex_rew, label = 'Extrinsic Reward')
+                                plt.plot(in_rew, label = 'Intrinsic Reward')
+                                plt.legend()
+                                plt.tight_layout()
+                                plt.savefig('out/rewards.png')
+                                plt.close()
+                                
+                                optimizer.zero_grad()
+                                hx = hx.detach_()
+                                if icm:
+                                    icm_optimizer.zero_grad()
+                                    (L_I + L_F).backward()
 
-                            loss.detach()
+                                loss.backward(retain_graph = True)
+                                torch.nn.utils.clip_grad_norm_(local_agent.parameters(), 40)
 
-                            for local_param, global_param in zip(
-                                                    local_agent.parameters(),
-                                                    global_actor_critic.parameters()):
-                                global_param._grad = local_param.grad
-                            optimizer.step()
-                            local_agent.load_state_dict(global_actor_critic.state_dict())
+                                loss.detach()
 
-                            if icm:
                                 for local_param, global_param in zip(
-                                                        local_icm.parameters(),
-                                                        global_icm.parameters()):
+                                                        local_agent.parameters(),
+                                                        global_actor_critic.parameters()):
                                     global_param._grad = local_param.grad
-                                icm_optimizer.step()
-                                local_icm.load_state_dict(global_icm.state_dict())
-                            memory.clear_memory()
+                                optimizer.step()
+                                local_agent.load_state_dict(global_actor_critic.state_dict())
+
+                                if icm:
+                                    for local_param, global_param in zip(
+                                                            local_icm.parameters(),
+                                                            global_icm.parameters()):
+                                        global_param._grad = local_param.grad
+                                    icm_optimizer.step()
+                                    local_icm.load_state_dict(global_icm.state_dict())
+                                memory.clear_memory()
 
             episode += 1
             

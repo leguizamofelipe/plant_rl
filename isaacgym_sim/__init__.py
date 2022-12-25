@@ -62,7 +62,7 @@ class Simulation():
         self.gym.add_ground(self.sim, plane_params)
 
         # Set up the env grid
-        self.num_envs = 1
+        self.num_envs = 3
         spacing = 8
         env_lower = gymapi.Vec3(-spacing, 0.0, -spacing)
         env_upper = gymapi.Vec3(spacing, spacing, spacing)
