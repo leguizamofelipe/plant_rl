@@ -6,9 +6,9 @@ from stable_baselines3 import PPO
 from basic_model.plant_beam_model_continuous_env import PlantBeamModelContinuousEnvironment
 
 cwd = os.getcwd()
-for file in os.listdir('output'):
+for file in os.listdir('out'):
     if 'final_pose' in file:
-        os.remove(os.path.join(cwd, 'output', file))
+        os.remove(os.path.join(cwd, 'out', file))
 
 # Environment definition
 env = PlantBeamModelContinuousEnvironment()
@@ -55,7 +55,7 @@ axs[3].legend()
 # axs[5].legend()
 plt.xlabel('Episode')
 plt.tight_layout()
-plt.savefig('output/curves.png', dpi = 500)
+plt.savefig('out/curves.png', dpi = 500)
 
 plt.show()
 
@@ -64,8 +64,8 @@ print('done')
 # ############################## DO AN EVALUATION ##############################
 '''
 # Clear out past data
-for file in os.listdir('output/replay'):
-    os.remove(os.path.join(cwd, 'output/replay', file))
+for file in os.listdir('out/replay'):
+    os.remove(os.path.join(cwd, 'out/replay', file))
 
 n_tries = 100
 

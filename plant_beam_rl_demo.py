@@ -1,5 +1,6 @@
 import pfrl
 import torch
+import os
 import torch.nn
 import gym
 import numpy as np
@@ -94,7 +95,12 @@ for i in range(1, n_episodes + 1):
         agent.observe(obs, reward, done, reset)
         if done or reset:
             if i % int(n_episodes/20) == 0:
-                env.P.plot_plant(save=True, filename=f'output/Ep_{i}_final_pose.png', title = f'Reward: {R}')
+                try:
+                    env.P.plot_plant(save=True, filename=f'out/Ep_{i}_final_pose.png', title = f'Reward: {R}')
+                except:
+                    print('No output directory. Making one.')
+                    os.makedirs('out')
+                    env.P.plot_plant(save=True, filename=f'out/Ep_{i}_final_pose.png', title = f'Reward: {R}')
             break
 
     #################### INSTRUMENTATION ##################
@@ -146,4 +152,3 @@ plt.tight_layout()
 # plt.title(f'n = {n_joints} Joints')
 plt.xlabel('Episode')
 plt.show()
-# plt.savefig(f'output/{n_joints}_joints.png')
