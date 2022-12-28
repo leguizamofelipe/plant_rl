@@ -45,7 +45,7 @@ class Simulation():
 
         #For deform bodies
         # enable Von-Mises stress visualization
-        sim_params.stress_visualization = True
+        sim_params.stress_visualization = False
         sim_params.stress_visualization_min = 0.0
         sim_params.stress_visualization_max = 1e6
 

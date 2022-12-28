@@ -40,10 +40,9 @@ class ParallelEnv:
 
             if icm:
                 local_icms.append(ICM(input_shape[0], n_actions, intrinsic_gain=1/4000))
-                algo = 'ICM'
-            else:
-                intrinsic_rewards.append(torch.zeros(1))
-                algo = 'A3C'
+            # else:
+            #     intrinsic_rewards.append(torch.zeros(1))
+            #     algo = 'A3C'
 
             env_memories.append(Memory())
 
@@ -117,30 +116,36 @@ class ParallelEnv:
                             if env_ep_steps[env_index] % T_MAX == 0 or done:
                                 local_agent = env_local_agents[env_index]
 
-                                local_icm = local_icms[env_index]
                                 states, actions, rewards, new_states, values, log_probs = \
                                         memory.sample_memory()
+
                                 if icm:
+                                    local_icm = local_icms[env_index]
+
                                     intrinsic_rewards, L_I, L_F = \
                                             local_icm.calc_loss(states, new_states, actions)
 
-                                L_Fs.append(float(L_F))
-                                L_Is.append(float(L_I))
+                                    L_Fs.append(float(L_F))
+                                    L_Is.append(float(L_I))
 
-                                plt.plot(L_Fs, label = 'Forward Loss')
-                                plt.plot(L_Is, label = 'Inverse Loss')
-                                plt.legend()
-                                plt.tight_layout()
-                                plt.savefig('out/losses.png')
-                                plt.close()
+                                    plt.plot(L_Fs, label = 'Forward Loss')
+                                    plt.plot(L_Is, label = 'Inverse Loss')
+                                    plt.legend()
+                                    plt.tight_layout()
+                                    plt.savefig('out/losses.png')
+                                    plt.close()
+                                else:
+                                    intrinsic_rewards = torch.zeros(len(rewards))
 
                                 loss = local_agent.calc_loss(obs, hx, done, rewards, values,
                                                             log_probs, intrinsic_rewards+torch.tensor(rewards, dtype=torch.float32))
-                                ex_rew=ex_rew+list(rewards)
+                                
                                 in_rew=in_rew+list(intrinsic_rewards.detach().numpy())
+                                plt.plot(in_rew, label = 'Intrinsic Reward')
+                                
+                                ex_rew=ex_rew+list(rewards)
                                 
                                 plt.plot(ex_rew, label = 'Extrinsic Reward')
-                                plt.plot(in_rew, label = 'Intrinsic Reward')
                                 plt.legend()
                                 plt.tight_layout()
                                 plt.savefig('out/rewards.png')
