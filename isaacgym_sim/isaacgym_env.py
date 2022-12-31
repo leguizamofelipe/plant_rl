@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from isaacgym import gymapi
 import cv2
+import os
 
 class IsaacGymPlantEnv(gym.Env):
     """An isaacgym plant environment for OpenAI gym"""
@@ -41,7 +42,14 @@ class IsaacGymPlantEnv(gym.Env):
         # Obs: von mises stress, kinematic tensor (franka pose, sb pose)
         self.observation_space = spaces.Box(low = obs_low, high = obs_high)
 
+        if not os.path.exists('output'):
+            os.mkdir('output')
+
+        self.episode_log = {'Reward': [], 'Clearances': []}
+        self.step_log = {'Ep_n':[], 'Reward': [], 'EE_Pose_x': [], 'EE_Pose_y': [], 'EE_Pose_z': []}
+
         self.ep_steps = 0
+        self.ep_reward = 0
         self.total_steps = 0
         self.hw_limit_steps = 0
         self.total_eps = 0
@@ -89,9 +97,16 @@ class IsaacGymPlantEnv(gym.Env):
             done=True
             # print('Hit step limit')
 
+        self.step_log['Reward'].append(reward)
+        self.step_log['EE_Pose_x'].append(self.S.get_end_effector_pose(self.env_n)[0])
+        self.step_log['EE_Pose_y'].append(self.S.get_end_effector_pose(self.env_n)[1])
+        self.step_log['EE_Pose_z'].append(self.S.get_end_effector_pose(self.env_n)[2])
+        self.step_log['Ep_n'].append(self.total_eps)
+        self.ep_reward+=reward
+
         if self.total_steps % 100 ==0:
             print(f'\nHW Limits breached {100*self.hw_limit_steps/self.total_steps}% of time')
-            print(f'Cleared {self.clearances}% times')
+            print(f'Cleared {self.clearances} times')
 
         return obs_1, reward, done, {}
 
@@ -102,7 +117,11 @@ class IsaacGymPlantEnv(gym.Env):
             return self.S.grayscale_cam_imgs[self.env_n].flatten()
 
     def reset(self):
+        self.episode_log['Reward'].append(self.ep_reward)
+        self.episode_log['Clearances'].append(self.clearances)
+
         self.ep_steps = 0
+        self.ep_reward = 0
         self.total_eps+=1
         dof_states = np.zeros(9, dtype=gymapi.DofState.dtype)
         dof_states['pos'] = np.array([0.3, 0.5, 0.75, -2, 1.25, 2.25, -1, 0, 0]) #np.array([1, 0.5, 0, -0.9425, 0, 1.12, 0, 0, 0])
@@ -112,5 +131,8 @@ class IsaacGymPlantEnv(gym.Env):
         self.S.set_franka_angles_target(dof_states['pos'], self.env_n)
         self.S.get_franka_angles(self.env_n)
         self.S.sim_step(skip_images = True)
+
+        pd.DataFrame(self.episode_log).to_csv(f'out/ep_log_env_{self.env_n}.csv', index = False)
+        pd.DataFrame(self.step_log).to_csv(f'out/step_log_env_{self.env_n}.csv', index = False)
 
         return self._next_observation()

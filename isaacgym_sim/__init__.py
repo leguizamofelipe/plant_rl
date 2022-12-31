@@ -308,6 +308,12 @@ class Simulation():
 
         return self.current_angles[env_n]
 
+    def get_end_effector_pose(self, env_n):
+        # Get rightfinger cartesian position
+        hand_handle = self.gym.find_actor_rigid_body_handle(self.envs[env_n], self.franka_handles[env_n], "panda_rightfinger")
+        hand_pose = self.gym.get_rigid_transform(self.envs[env_n], hand_handle)
+        return [hand_pose.p.x, hand_pose.p.y, hand_pose.p.z]
+                
     def set_franka_angles(self, angles, env_n, skip_timeout = False):
         self.set_franka_angles_target(angles, env_n)
 

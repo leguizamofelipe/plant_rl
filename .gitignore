@@ -8,14 +8,15 @@ __pycache__/
 
 .json
 
+*.csv
+
 interop_images/
 
-.png
+*.png
 
-out/
-
-output/
 assets/
+
+models/
 policies/
 
 # Distribution / packaging

@@ -6,6 +6,7 @@ from ICM.memory import Memory
 from isaacgym_sim.isaacgym_env import IsaacGymPlantEnv
 import torch
 import numpy as np
+import pandas as pd
 import time
 import matplotlib.pyplot as plt
 
@@ -119,6 +120,9 @@ class ParallelEnv:
                                 states, actions, rewards, new_states, values, log_probs = \
                                         memory.sample_memory()
 
+                                icm_loss_log = pd.DataFrame()
+                                icm_rew_log = pd.DataFrame()
+
                                 if icm:
                                     local_icm = local_icms[env_index]
 
@@ -127,6 +131,11 @@ class ParallelEnv:
 
                                     L_Fs.append(float(L_F))
                                     L_Is.append(float(L_I))
+
+                                    icm_loss_log['FW_Loss'] = L_Fs
+                                    icm_loss_log['INV_Loss'] = L_Is
+
+                                    icm_loss_log.to_csv(f'out/icm_loss_log_env_{env_index}.csv', index=False)
 
                                     plt.plot(L_Fs, label = 'Forward Loss')
                                     plt.plot(L_Is, label = 'Inverse Loss')
@@ -144,6 +153,11 @@ class ParallelEnv:
                                 plt.plot(in_rew, label = 'Intrinsic Reward')
                                 
                                 ex_rew=ex_rew+list(rewards)
+
+                                icm_rew_log['Ex_Rew'] = ex_rew
+                                icm_rew_log['In_Rew'] = in_rew
+
+                                icm_rew_log.to_csv(f'out/icm_rew_log_env_{env_index}.csv', index=False)
                                 
                                 plt.plot(ex_rew, label = 'Extrinsic Reward')
                                 plt.legend()
