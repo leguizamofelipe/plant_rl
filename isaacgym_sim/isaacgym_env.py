@@ -1,3 +1,4 @@
+from time import sleep
 import gym
 from gym import spaces
 import numpy as np
@@ -134,5 +135,7 @@ class IsaacGymPlantEnv(gym.Env):
 
         pd.DataFrame(self.episode_log).to_csv(f'out/ep_log_env_{self.env_n}.csv', index = False)
         pd.DataFrame(self.step_log).to_csv(f'out/step_log_env_{self.env_n}.csv', index = False)
+        
+        sleep(20)
 
         return self._next_observation()
