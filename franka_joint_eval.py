@@ -10,7 +10,7 @@ S = Simulation()
 poses = [[] for i in range(0, 9)]
 
 count = 0
-S.set_franka_angles(np.array([-0.2, 0.5, 0.75, -2, 1.25, 2.25, -1, 0, 0]), 0, skip_timeout=True)
+# S.set_franka_angles(np.array([-0.2, 0.5, 0.75, -2, 1.25, 2.25, -1, 0, 0]), 0, skip_timeout=True)
 
 print(S.franka_lower_limits)
 print(S.franka_upper_limits)
@@ -20,7 +20,7 @@ maxes = []
 
 while not S.gym.query_viewer_has_closed(S.viewer):
     S.sim_step()
-    # print(S.von_mises)
+    print(S.red_indexes)
 
     # print(max(S.von_mises))
 

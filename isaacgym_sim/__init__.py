@@ -198,7 +198,7 @@ class Simulation():
             ball_actor = self.gym.create_actor(env, sphere_asset, pose, "ball", i, 0, 0)
             self.gym.set_rigid_body_color(env, ball_actor, 0, gymapi.MESH_VISUAL, gymapi.Vec3(*(1, 0, 0)))
 
-            # Add base
+            # Add bases
             asset_options = gymapi.AssetOptions()
             asset_options.density = 10.0
             asset_options.fix_base_link = True
@@ -208,6 +208,41 @@ class Simulation():
             pose.p.z+=0.1
             base_asset = self.gym.create_box(self.sim, 0.3, 0.1, 0.3, asset_options)
             base_actor = self.gym.create_actor(env, base_asset, pose, "base", i, 0, 0)
+
+            # Add bases
+            asset_options = gymapi.AssetOptions()
+            asset_options.density = 10.0
+            asset_options.fix_base_link = True
+            pose = gymapi.Transform()
+            pose.p = deform_position#gymapi.Vec3(2, 0.1, -2)
+            pose.p.x+=(0.1)
+            pose.p.z+=(0.1+0.2)
+            base_asset = self.gym.create_box(self.sim, 0.1, 0.5, 0.3, asset_options)
+            base_actor = self.gym.create_actor(env, base_asset, pose, "base0", i, 0, 0)
+
+            # Add bases
+            asset_options = gymapi.AssetOptions()
+            asset_options.density = 10.0
+            asset_options.fix_base_link = True
+            pose = gymapi.Transform()
+            pose.p = deform_position#gymapi.Vec3(2, 0.1, -2)
+            pose.p.x+=(0.1+0.2)
+            pose.p.z+=(0.1)
+            base_asset = self.gym.create_box(self.sim, 0.3, 0.5, 0.1, asset_options)
+            base_actor = self.gym.create_actor(env, base_asset, pose, "base1", i, 0, 0)
+
+            # Add bases
+            asset_options = gymapi.AssetOptions()
+            asset_options.density = 10.0
+            asset_options.fix_base_link = True
+            pose = gymapi.Transform()
+            pose.p = deform_position#gymapi.Vec3(2, 0.1, -2)
+            pose.p.x+=(0.1-0.2)
+            pose.p.z+=(0.1)
+            base_asset = self.gym.create_box(self.sim, 0.3, 0.5, 0.1, asset_options)
+            base_actor = self.gym.create_actor(env, base_asset, pose, "base2", i, 0, 0)
+
+
 
             cam_pos = franka_pose
             cam_pos.z-=0
