@@ -217,7 +217,7 @@ class Simulation():
             pose.p = deform_position#gymapi.Vec3(2, 0.1, -2)
             pose.p.x+=(0.1)
             pose.p.z+=(0.1+0.2)
-            base_asset = self.gym.create_box(self.sim, 0.1, 0.5, 0.3, asset_options)
+            base_asset = self.gym.create_box(self.sim, 0.1, 0.3, 0.3, asset_options)
             base_actor = self.gym.create_actor(env, base_asset, pose, "base0", i, 0, 0)
 
             # Add bases
@@ -228,7 +228,7 @@ class Simulation():
             pose.p = deform_position#gymapi.Vec3(2, 0.1, -2)
             pose.p.x+=(0.1+0.2)
             pose.p.z+=(0.1)
-            base_asset = self.gym.create_box(self.sim, 0.3, 0.5, 0.1, asset_options)
+            base_asset = self.gym.create_box(self.sim, 0.3, 0.3, 0.1, asset_options)
             base_actor = self.gym.create_actor(env, base_asset, pose, "base1", i, 0, 0)
 
             # Add bases
@@ -239,7 +239,7 @@ class Simulation():
             pose.p = deform_position#gymapi.Vec3(2, 0.1, -2)
             pose.p.x+=(0.1-0.2)
             pose.p.z+=(0.1)
-            base_asset = self.gym.create_box(self.sim, 0.3, 0.5, 0.1, asset_options)
+            base_asset = self.gym.create_box(self.sim, 0.3, 0.3, 0.1, asset_options)
             base_actor = self.gym.create_actor(env, base_asset, pose, "base2", i, 0, 0)
 
 
