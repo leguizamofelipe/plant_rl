@@ -6,7 +6,6 @@ import numpy as np
 from basic_model.plant_model_env import BasicPlantModelEnvironment
 import matplotlib.pyplot as plt
 
-# for n_joints in [5, 10, 15, 20, 25, 35]:
 for n_joints in [15]:
     link_len = 25/n_joints
 

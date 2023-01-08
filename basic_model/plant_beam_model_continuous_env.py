@@ -11,13 +11,11 @@ import tensorflow as tf
 
 Adam = tf.keras.optimizers.Adam(learning_rate = 0.01)
 
-from basic_model.icm_networks import *
-
 class PlantBeamModelContinuousEnvironment(gym.Env):
     """A plant environment for OpenAI gym"""
     metadata = {'render.modes': ['human']} # TODO understand what this does
 
-    def __init__(self, icm = False):
+    def __init__(self):
         self.max_fruit_radius = 1
         self.P = PlantBeamModel(random.random()*self.max_fruit_radius)
 
@@ -58,20 +56,6 @@ class PlantBeamModelContinuousEnvironment(gym.Env):
 
         # Continuous observation state: x_plant, y_plant, x_cf, y_cf, r_f, f_app
         self.observation_space = spaces.Box(low = np.concatenate((-10*np.ones(2*self.P.resolution + 4), np.array([0, 0]))), high = np.concatenate((10*np.ones(2*self.P.resolution + 4), np.array([500, self.P.p_len]))))
-
-        ### ICM
-        self.icm = icm
-        # if icm:
-        #     self.forward_model = ForwardModel(self.observation_space.shape)
-        #     self.forward_model.compile(optimizer = Adam, loss = 'mse')
-        #     self.inverse_model = InverseModel(self.action_space.shape)
-        #     self.inverse_model.compile(optimizer = Adam, loss = 'mse')
-        #     self.feature_extractor = FeatureExtractor(self.observation_space.shape)
-        #     self.feature_extractor.compile(optimizer = Adam, loss = 'mse')            
-
-        if icm:
-            self.icm_model = ICMModel(self.observation_space.shape, self.action_space.shape).built_model
-            self.icm_model.compile(optimizer=Adam, loss='mse')
 
     def _take_action(self, action):
         self.force+=action[0]
@@ -132,9 +116,6 @@ class PlantBeamModelContinuousEnvironment(gym.Env):
         self.actions_buffer.append(action)
         self.rewards_buffer.append(reward)
 
-        if self.timesteps % (self.batch_size+1)==0:
-            self.update_icm()
-
         if self.pushes > self.max_ep_len:
             done = True
 
@@ -190,30 +171,3 @@ class PlantBeamModelContinuousEnvironment(gym.Env):
         # Try again if there is no occlusion
         if self.P.calculate_occlusion() == 0:
             self.set_occlusion()
-
-    def update_icm(self):
-        s_t=np.array(self.states_buffer[:self.batch_size-1])
-        s_t1=np.array(self.states_buffer[1:self.batch_size])
-
-        actions=np.array(self.actions_buffer[:self.batch_size-1])
-        rewards = np.array(self.rewards_buffer[:self.batch_size-1])
-        self.icm_model.train_on_batch([s_t, s_t1, actions, rewards], np.zeros(self.batch_size-1,))
-
-    # def create_models(self):
-    #     if self.icm:
-    #         self.forward_net = ForwardModel()
-    #         self.inverse_net = InverseModel()
-    #         self.feature_extractor = FeatureExtractor()
-
-    #         self.forward_net.compile(optimizer=Adam, loss='mse')
-    #         self.inverse_net.compile(optimizer=Adam, loss='mse')
-    #         self.feature_extractor.compile(optimizer=Adam, loss='mse')
-
-    #     else:
-    #         pass
-
-    # def update_models(self):
-    #     self.forward_net
-    #     self.inverse_net
-    #     self.feature_extractor
-
