@@ -14,8 +14,6 @@ interop_images/
 
 *.png
 
-assets/
-
 models/
 policies/
 

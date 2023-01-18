@@ -1,0 +1,34 @@
+<?xml version="1.0" ?>
+
+<robot name="corn">
+	<!-- <link name="object">
+		<visual>
+		<origin xyz="2 0 2"/>
+		<geometry>
+			<mesh filename="meshes/cube_multicolor.obj" scale=".05 .05 .05"/>
+		</geometry>
+		</visual>
+		<collision>
+		<origin xyz="2 0 2"/>
+		<geometry>
+			<box size="0.05 0.05 0.05"/>
+		</geometry>
+		</collision>
+		<inertial>
+		<density value="567.0"/>
+		</inertial>
+		8e5
+	</link> -->
+  	<link name="corn">
+        <fem>
+			<!-- <origin rpy="-1.57 0 0" xyz="0.0 0.2 5"/> -->
+			<origin rpy="0 0 0" xyz="0 0 0"/> 
+			<density value="100"/>
+			<youngs value="8e5"/>
+			<poissons value="0.45"/>
+			<damping value="0.0"/>
+			<tetmesh filename="stl/corn_no_base.tet"/>
+			<attachDistance value = "0.3"/>
+        </fem>
+	</link> 
+</robot>
