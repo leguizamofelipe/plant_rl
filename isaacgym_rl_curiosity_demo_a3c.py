@@ -16,4 +16,4 @@ input_shape = [n_obs]
 
 mp.set_start_method('spawn')
 
-parallel_env = ParallelEnv(n_envs=n_envs, n_actions=n_actions, simulation=simulation, input_shape=input_shape, icm=True)
+parallel_env = ParallelEnv(n_envs=n_envs, n_actions=n_actions, simulation=simulation, input_shape=input_shape, icm=False)
